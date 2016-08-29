@@ -422,14 +422,39 @@ are generated random uniform in $[0,50)$.
   \end{tabular}
   \caption{Timings for factorization and inverse-based solutions in python. The
     times are for a single solve, averaged over the number of iterations (e.g.
-    5s with 100 iterations means the run took 500 seconds total).}
+    5s with 100 iterations means the run took 500 seconds total). All times are
+    in seconds.}
   \label{tab: solvecomparetimings}
 \end{table}
 
 \section{Sparse Matrices}
 
 Converting the code to use sparse matrix representation is pretty simple to do
-with
+with python. Simply use the sparse solver provided by
+\texttt{scipy.sparse.linalg} to solve the problem. Stacking this solver up
+against the previous solver, we get the following values:
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{|c|c|c|c|c|c|}
+    \hline
+    Rows & Columns & Sparsity & Sparse Solver (ms) & Inversion (ms) & Factorization (ms) \\ \hline \hline
+    4000 & 200 & 0.05 & 1.63 & 1.15 & 0.58 \\ \hline
+    4000 & 400 & 0.05 & 13.3 & 4.33 & 2.05 \\ \hline
+    4000 & 800 & 0.05 & 65.1 & 23.4 & 10.9 \\ \hline
+    4000 & 1600 & 0.05 & 383 & 151 & 52.4 \\ \hline
+    4000 & 200 & 0.15 & 1.77 & 1.15 & 0.58\\ \hline
+    4000 & 400 & 0.15 & 14   & 4.17 & 2.02\\ \hline
+    4000 & 800 & 0.15 & 68.4 & 23.5 & 10.2\\ \hline
+    4000 & 1600 & 0.15 & 394 & 157 & 50.9
+  \end{tabular}
+  \caption{Timings for factorization and inverse-based, as well as sparse solver
+    solutions in python. The non-sparse solvers were run by first converting the
+  sparse matrix representation to a dense one, then using the routines provided
+  by the previous test. All tests were done over 100 iterations. }
+  \label{tab: solvecomparetimings}
+\end{table}
+
 
 
 

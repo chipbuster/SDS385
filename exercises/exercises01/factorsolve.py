@@ -9,15 +9,7 @@ import scipy as sp
 from scipy import linalg
 import random
 
-def gen_A(X, W):
-    return X.T * W * X
-
-def gen_b(X, W, y):
-    return X.T * W * y
-
-def solve(X, W, y):
-    A = gen_A(X,W)
-    b = gen_b(X,W,y)
+def solve(A,b):
 
     LUFact = linalg.lu_factor(A)
     solution = linalg.lu_solve(LUFact, b)

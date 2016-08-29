@@ -5,21 +5,20 @@ import numpy as np
 import scipy.sparse as sparse
 
 # TestType: 0 = factor, 1 = inversion
-def runTest(rows, cols, testtype, sparsity = 1):
+def genTest(rows, cols, sparsity = 1):
     assert rows > cols, "Rows must be greater than cols"
 
-    W = np.matrix(np.eye(rows))
-    X = np.random.rand(rows,cols)
-    y = np.random.rand(rows, 1)
+    W = sparse.identity(rows)
+    X = sparse.rand(rows,cols,sparsity)
+    y = sparse.rand(rows,1   ,sparsity)
 
     X = X * 100
     y = y * 30
 
-    if testtype == 1 or testtype == "inversion":
-        invsolv.solve(X,W,y)
-    elif testtype == 0 or testtype == "factor":
-        factsolv.solve(X,W,y)
-    elif testtype == 2 or testtype == "sparse":
-        sparsesolv.solve(X,W,y)
-    else:
-        print("ERROR: bad test type")
+    A = X.T * W * X
+    b = X.T * W * y
+
+    A_dense = A.todense()
+    b_dense = b.todense()
+
+    return (A,b,A_dense, b_dense)
