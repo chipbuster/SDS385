@@ -18,7 +18,7 @@
 \usepackage[version=4]{mhchem} % chemical formulae
 \usepackage{hyperref}
 \usepackage{parskip}  %Extra space on new paragraph, no indent
-\usepackage{graphicx} 
+\usepackage{graphicx}
 \usepackage{natbib}
 \usepackage{listings}
 
@@ -27,12 +27,12 @@
 %%% Section Separators
 
 \newcommand{\starhsep}{
-\begin{center} 
+\begin{center}
   $\ast$~$\ast$~$\ast$
 \end{center}}
 
 \newcommand{\clubhsep}{
-\begin{center} 
+\begin{center}
   $\clubsuit$~$\clubsuit$~$\clubsuit$
 \end{center}}
 
@@ -260,7 +260,7 @@
   deletekeywords={...},            % if you want to delete keywords from the given language
   escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
   extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
-  frame=single,	                   % adds a frame around the code
+  frame=single,                    % adds a frame around the code
   keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
   keywordstyle=\color{blue},       % keyword style
   language=Octave,                 % the language of the code
@@ -274,7 +274,7 @@
   showtabs=false,                  % show tabs within strings adding particular underscores
   stepnumber=2,                    % the step between two line-numbers. If it's 1, each line will be numbered
   stringstyle=\color{mymauve},     % string literal style
-  tabsize=2,	                   % sets default tabsize to 2 spaces
+  tabsize=2,                     % sets default tabsize to 2 spaces
   title=\lstname                   % show the filename of files included with \lstinputlisting; also try caption instead of title
 }
 
@@ -315,7 +315,7 @@ operations.
 Instead, we convert to quadratic form:
 
 \[
-\frac{1}{2} w^T (y - X\beta)^2 =\frac{1}{2} (y - X\beta)^T W (y - X\beta) 
+\frac{1}{2} w^T (y - X\beta)^2 =\frac{1}{2} (y - X\beta)^T W (y - X\beta)
 \]
 
 where $W$ is the diagonal matrix with the entries of $w$ along its diagonal.
@@ -330,7 +330,7 @@ Expanding this product, we find that
 
 \[
   \frac{1}{2} (y - X\beta)^T W (y - X\beta) =
-  \frac{1}{2} \left( y^TWy - y^TWX\beta - \beta^TX^TWy + \beta^TX^TWX\beta \right) 
+  \frac{1}{2} \left( y^TWy - y^TWX\beta - \beta^TX^TWy + \beta^TX^TWX\beta \right)
 \]
 
 In this expansion, we find that the first term is useless to us: since we change
@@ -347,7 +347,7 @@ the matrix $X^TWX$.
 This gives us the following objective function:
 
 \[
- f(\beta) = (y^T W X) \beta + \frac{1}{2} \beta^T X^T W X \beta 
+ f(\beta) = (y^T W X) \beta + \frac{1}{2} \beta^T X^T W X \beta
 \]
 
 Note that this is a quadratic form, $\frac{1}{2}x^TAx + b^Tx + c$, with $A =
@@ -379,7 +379,7 @@ be equal to the identity matrix!
 %% throw away the weight information. Why can we not do this, or if we can,
 %% why do the weights matter at all? A: Because X^T is probably not invertible dummy.
 %% Is X^T W X guaranteed to be positive-definite? If so, we can use Cholesky.
-%% 
+%%
 
 Since we cannot always use matrix inversion, we can instead use a matrix
 factorization method. In this case, we choose an LU method because I'm not sure
@@ -446,7 +446,7 @@ against the previous solver, we get the following values:
     4000 & 200 & 0.15 & 1.77 & 1.15 & 0.58\\ \hline
     4000 & 400 & 0.15 & 14   & 4.17 & 2.02\\ \hline
     4000 & 800 & 0.15 & 68.4 & 23.5 & 10.2\\ \hline
-    4000 & 1600 & 0.15 & 394 & 157 & 50.9
+    4000 & 1600 & 0.15 & 394 & 157 & 50.9 \\ \hline
   \end{tabular}
   \caption{Timings for factorization and inverse-based, as well as sparse solver
     solutions in python. The non-sparse solvers were run by first converting the
@@ -455,9 +455,47 @@ against the previous solver, we get the following values:
   \label{tab: solvecomparetimings}
 \end{table}
 
+\section{MLE}
 
+The MLE form is:
 
+\begin{align*}
+  l(\beta) &= -\log\left\{ \prod\limits_{i=1}^N p(y_i \, ;\, \beta) \right\}\\
+           &= - \sum\limits_{i=1}^N \log p(y_i \, ;\, \beta) \\
+           &= -\sum\limits_{i=1}^N \log \left( \binom{m_i}{y_i} (w_i)^{y_i}(1 - w_i)^{m_i - y_i} \right)\\
+           &= -\sum\limits_{i=1}^N \log \binom{m_i}{y_i} -\sum\limits_{i=1}^N \log w_i^{y_i} -\sum\limits_{i=1}^N \log (1 - w_i)^{m_i - y_i} \\
+           &= -\sum\limits_{i=1}^N \log \binom{m_i}{y_i}
+             -  \sum\limits_{i=1}^N \log 1 +  y_i \sum\limits_{i=1}^N \log (1 + \exp(x_i^T \beta)) -
+             (m_i - y_i)\sum\limits_{i=1}^N \log\left(\frac{\exp(x_i^T\beta)}{1 + \exp(x_i^T \beta)}\right)
+\end{align*}
 
+The $\log 1$ term is identically equal to zero, and when we take the gradient,
+we find that the binomial coefficient also goes to zero (since it does not
+depend on $\beta$.) 
 
+If we define $l_i(\beta)$ as 
+
+\[
+  l_i(\beta) =  y_i \sum\limits_{i=1}^N \log (1 + \exp(x_i^T \beta)) -
+   (m_i - y_i) \log\left(\frac{\exp(x_i^T\beta)}{1 + \exp(x_i^T \beta)}\right) - \log \binom{m_i}{y_i}
+\]
+
+we can express $l(\beta) = \sum l_i(\beta)$. Then to find the gradient of $l$,
+we need only find the gradient of each $l_i$.
+
+\begin{align*}
+ \nabla l_i(\beta) &=  \nabla \log (1 + \exp\{x_i^T \beta\}) -
+                   \nabla \log\left(\frac{\exp(x_i^T\beta)}{1 + \exp(x_i^T \beta)}\right)\\
+                   &= y_i x_i \left( \frac{\exp(x_i^T \beta)}{1 + \exp(x_i^T \beta)} \right)
+                     - (m_i - y_i) x_i \left( \frac{\exp(x_i^T\beta)}{(\exp(x_i^T \beta) + 1)^2} \right)
+\end{align*}
+
+which, using the abbreviation mentioned in the assignment, is equivalent to
+
+\[
+  y_iw_i \exp(x_i^T \beta) x_i - (m_i - y_i) w_i^2 \exp(x_i^T \beta) x_i
+\]
+
+I have no idea if this is even close to correct.
 
 \end{document}
