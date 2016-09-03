@@ -3,8 +3,22 @@ import numpy as np
 import csv
 import sys
 from numpy import linalg as LA
+import pdb
 
 bump = 0.00000001 # A tiny bump for some values that really should not be zero
+smallest_safe_exponent = math.log(sys.float_info.min) + 3
+largest_safe_exponent = math.log(sys.float_info.max) - 3
+
+def safe_exp(val):
+    """Calculates the "safe exponential" of a value. If the computed exponential would
+    be too large, it replaces it with a safe value."""
+
+    if val > largest_safe_exponent:
+        return math.exp(largest_safe_exponent)
+    elif val < smallest_safe_exponent:
+        return math.exp(smallest_safe_exponent)
+    else:
+        return math.exp(val)
 
 def calc_likelihood_function(X,y,m):
     """Gives a function to determine the likelihood in the inverse logit method.
@@ -13,13 +27,14 @@ def calc_likelihood_function(X,y,m):
     def likelihood(B):
         result = 0
 
-        xs  = [ xi for xi in X.T ]
-        exp = [ math.exp(-np.dot(xi,B)) + bump for xi in xs ] #In case xi dot B = 0, add bump
-        w   = [ 1.0 / (1 + et ) for et in exp ]
+        xvecs = [ xs for xs in X ]                        # Length Samples
+        exponents = [ np.dot(x,B) for x in xvecs ]
+        expterms = [ safe_exp(z) for z in exponents ]
+        weights = [ 1.0 / (1.0 + e) for e in expterms ]
 
-        for i in range(np.shape(X)[1]):
-            result += np.asscalar(y[i]) * math.log(1 + exp[i])
-            result -= np.asscalar(m[i] - y[i]) * math.log(exp[i] / (1 + exp[i]))
+        for i in range(len(xvecs)):
+            result -= np.asscalar(y[i]) * math.log(weights[i])
+            result -= np.asscalar(m[i] - y[i]) * math.log(1 - weights[i])
 
         return result
     return likelihood
@@ -28,18 +43,21 @@ def calc_grad_function(X,y,m):
     """Calculates the gradient of the inverse logit MLE given the parameters.
     Return is a lambda function which takes a single parameter and returns float."""
 
+    # X is a feature matrix: columns are features, rows are entries. Dim: samples x features
+    # y is a response vector: one column of responses                Dim: samples x 1
+    # m is a trials vector                                           Dim: samples x 1
+
     def grad(B):
-        gradient = np.matrix(np.zeros(np.shape(B)))
+        # B should be a col vector with length = # features
 
-        xs  = [ xi.T for xi in X.T ]
-        exp = [ math.exp(-np.dot(B.T,xi)) + bump for xi in xs ] #In case xi dot B = 0, add bump
-        w   = [ 1.0 / (1 + et ) for et in exp ]
+        xvecs = [ xs for xs in X ]                        # Length Samples
+        exponents = [ np.dot(x,B) for x in xvecs ]
+        expterms = [ safe_exp(z) for z in exponents ]
+        weights = [ 1.0 / (1.0 + e) for e in expterms ]
 
-        for i in range(np.shape(X)[1]):
-            update = np.asscalar(y[i]) * w[i] * exp[i] * xs[i]
-            gradient += update
-            gradient -= np.asscalar(m[i] - y[i]) * w[i] * w[i] * exp[i] * xs[i]
+        W = np.matrix(np.diag(np.array(weights)))
 
+        gradient = X.T * (y - W * m)
         return gradient
 
     return grad
@@ -62,21 +80,20 @@ def steepest_descent(params, initial_guess, converge_step):
 
     ## Main Steepest Descent Loop
     while delta > converge_step:
-        gradient = grad_op(guess)
-        prev_guess = guess
+        oldGuess = guess
 
-        # Search along gradient direction using MAGIC
-        step = 1 if delta == sys.float_info.max else delta * 100
-        guess = guess + gradient * step
+        grad = grad_op(guess)
+        step = 0.001
 
-        prev_guess_val = llh_op(prev_guess)
-        curr_guess_val = llh_op(guess)
+        guess = guess - grad * step
 
-        likelihood_record.append(curr_guess_val)
+        delta = abs(llh_op(oldGuess) - llh_op(guess))
 
-        delta = abs(prev_guess_val - curr_guess_val)
+        likelihood_record.append(delta)
 
-    return (guess, likelihood_record)
+        print(delta)
+
+    return (guess,likelihood_record)
 
 def main(filename):
     """Driver for steepest descent code."""
@@ -106,6 +123,17 @@ def main(filename):
     # Get the "trial number" for the MLE, in this case, a vectors of 1s
     trials = np.matrix(np.ones(np.shape(response)))
 
-    solution,_ = steepest_descent((predictors, response, trials), trials * 0.001, 0.00000001)
+    # Recondition matrix to have order of magnitude ~1
+    condWeights = np.average(predictors,axis=0)
+    W = np.matrix(np.diagflat(condWeights))
+
+    predictors = predictors * W.I
+
+    initGuess = np.matrix(np.ones((np.shape(predictors)[1],1))) * 0.001
+
+    solution,_ = steepest_descent((predictors, response, trials), initGuess, 0.01)
+
+    # Since we changed the predictors, need to reverse-transform the solution
+    solution = W * solution
 
     print(solution)

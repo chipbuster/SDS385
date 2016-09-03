@@ -464,38 +464,95 @@ The MLE form is:
            &= - \sum\limits_{i=1}^N \log p(y_i \, ;\, \beta) \\
            &= -\sum\limits_{i=1}^N \log \left( \binom{m_i}{y_i} (w_i)^{y_i}(1 - w_i)^{m_i - y_i} \right)\\
            &= -\sum\limits_{i=1}^N \log \binom{m_i}{y_i} -\sum\limits_{i=1}^N \log w_i^{y_i} -\sum\limits_{i=1}^N \log (1 - w_i)^{m_i - y_i} \\
-           &= -\sum\limits_{i=1}^N \log \binom{m_i}{y_i}
-             -  \sum\limits_{i=1}^N \log 1 +  y_i \sum\limits_{i=1}^N \log (1 + \exp(x_i^T \beta)) -
-             (m_i - y_i)\sum\limits_{i=1}^N \log\left(\frac{\exp(x_i^T\beta)}{1 + \exp(x_i^T \beta)}\right)
+           &= -\sum\limits_{i=1}^N \log \binom{m_i}{y_i} - y_i \sum\limits_{i=1}^N \log w_i -(m_i - y_i)\sum\limits_{i=1}^N \log (1 - w_i)\\
 \end{align*}
 
-The $\log 1$ term is identically equal to zero, and when we take the gradient,
-we find that the binomial coefficient also goes to zero (since it does not
-depend on $\beta$.) 
+Again, since the binomial coefficient is not important in the context of
+optimizing this function over $\beta$, we ignore it.
+
+This gives us the final equation
+\[
+  -l(\beta)= y_i \sum\limits_{i=1}^N \log w_i + (m_i - y_i)\sum\limits_{i=1}^N \log (1 - w_i)\\
+\]
 
 If we define $l_i(\beta)$ as 
 
 \[
-  l_i(\beta) =  y_i \sum\limits_{i=1}^N \log (1 + \exp(x_i^T \beta)) -
-   (m_i - y_i) \log\left(\frac{\exp(x_i^T\beta)}{1 + \exp(x_i^T \beta)}\right) - \log \binom{m_i}{y_i}
+  -l_i(\beta) = \sum\limits_{i=1}^N \log w_i - \sum\limits_{i=1}^N \log (1 - w_i)
 \]
 
 we can express $l(\beta) = \sum l_i(\beta)$. Then to find the gradient of $l$,
 we need only find the gradient of each $l_i$.
 
 \begin{align*}
- \nabla l_i(\beta) &=  \nabla \log (1 + \exp\{x_i^T \beta\}) -
-                   \nabla \log\left(\frac{\exp(x_i^T\beta)}{1 + \exp(x_i^T \beta)}\right)\\
-                   &= y_i x_i \left( \frac{\exp(x_i^T \beta)}{1 + \exp(x_i^T \beta)} \right)
-                     - (m_i - y_i) x_i \left( \frac{\exp(x_i^T\beta)}{(\exp(x_i^T \beta) + 1)^2} \right)
+  -\nabla l_i(\beta) &= \nabla_\beta \log w_i + \nabla_\beta\log (1 - w_i)
 \end{align*}
 
-which, using the abbreviation mentioned in the assignment, is equivalent to
+We note that $\nabla_\beta l_i = (w_i)(1 - w_i)x_i$. This allows us to apply the
+chain rule to the above form, yielding
+
+\begin{align*}
+  -\nabla l_i(\beta) &= y_i\nabla_\beta \log w_i + (m_i - y_i)\nabla_\beta\log (1 - w_i)\\
+                    &= y_i\frac{1}{w_i} \nabla_\beta w_i + (m_i - y_i)\frac{1}{1 - w_i} \nabla_\beta(1-w_i)\\
+                    &= y_i\frac{w_i(1 - w_i)}{w_i} x_i - (m_i - y_i)\frac{w_i(1 - w_i)}{1 - w_i}x_i\\
+                    &= y_i (1 - w_i) x_i - (m_i - y_i) w_i x_i\\
+                    &= (y_i - y_iw_i - m_iw_i + y_iw_i) x_i\\
+                    &= (y_i - m_iw_i) x_i
+\end{align*}
+
+Finally, this gives us that the gradient of the entire MLE function is
 
 \[
-  y_iw_i \exp(x_i^T \beta) x_i - (m_i - y_i) w_i^2 \exp(x_i^T \beta) x_i
+  \nabla(\beta) = -\sum\limits_{i=1}^N (y_i - m_iw_i) x_i
 \]
 
-I have no idea if this is even close to correct.
+\section{Steepest Descent Code}
+
+This code has one major quirk: instead of evaluating the gradient and
+log-likelihood at $\beta_i$ in a single function, a generator is used to produce
+a gradient/likelihood function beforehand. This function is then used to
+compute the desired quantities.
+
+\lstinputlisting[language=Python]{steepestdescent.py}
+
+\section{Quadratic Forms Again}
+
+The second-order Taylor approximation of $l(\beta)$ about $\beta_0$ is given by
+Taylor's Theorem:
+
+\begin{align*}
+  l(\beta) &\approx l(\beta_0) + \nabla l(\beta_0)^T (\beta - \beta_0) +
+             \frac{1}{2} (\beta - \beta_0)^T  \nabla^2 l(\beta_0) (\beta - \beta_0) \\
+           &= l(\beta_0) + \nabla l(\beta_0)^T(\beta - \beta_0) + \frac{1}{2}(\beta - \beta_0)^T
+             H_l(\beta_0) (\beta - \beta_0)
+\end{align*}
+
+We can get this into the desired quadratic form by completing the square. To
+derive the form for this, we write the form we have and the form we would like,
+and attempt to get the two to agree. Assuming that $M$ and $C$ are symmetric,
+
+\begin{align*}
+  a + b^Tx + \frac{1}{2} x^T C x &= \frac{1}{2} (x - y)^T M (x - y) \\
+                                 &= \frac{1}{2} \left(  x^TMx - x^TMy - y^TMx + y^TMy  \right) + v\\
+ \frac{1}{2} x^T C x + b^Tx + a &= \left( \frac{1}{2} x^TMx \right) - y^TMx + \frac{1}{2}\left( y^TMy + v \right)
+\end{align*}
+
+Comparing the terms on the left and right, this suggests that
+
+\begin{align*}
+  M &= C \\
+  -y^TM = b^T \implies y &= -M^{-1}b = -C^{-1}b\\
+  v = a - \frac{1}{2} y^TMy &= a - \frac{1}{2} b^T C^{-1}b
+\end{align*}
+
+Applying this to our problem, we get that
+
+\begin{align*}
+  M &= H_l(\beta_0)\\
+  y &= H_l(\beta_0)^{-1} \nabla l(\beta_0)\\
+  v &= l(\beta_0) - \frac{1}{2} \nabla l(\beta_0)^T H_l(\beta_o)^{-1} \nabla l(\beta_0)
+\end{align*}
+
+
 
 \end{document}
