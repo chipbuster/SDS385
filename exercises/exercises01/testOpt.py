@@ -38,9 +38,9 @@ def main(filename):
 
     predictors = predictors * W.I
 
-    initGuess = np.matrix(np.ones((np.shape(predictors)[1],1))) * 0.001
+    initGuess = np.matrix(np.random.rand(np.shape(predictors)[1],1)) * 0.001
 
-    solution,_ = steepestdescent.solve((predictors, response, trials), initGuess, 0.01)
+    solution,_ = steepestdescent.solve((predictors, response, trials), initGuess, 1e-16)
 
     # Since we changed the predictors, need to reverse-transform the solution
     solution = W * solution

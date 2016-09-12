@@ -521,11 +521,14 @@ The second-order Taylor approximation of $l(\beta)$ about $\beta_0$ is given by
 Taylor's Theorem:
 
 \begin{align*}
-  l(\beta) &\approx l(\beta_0) + \nabla l(\beta_0)^T (\beta - \beta_0) +
+  q(\beta; \beta_0)
+  &\approx l(\beta_0) + \nabla l(\beta_0)^T (\beta - \beta_0) +
              \frac{1}{2} (\beta - \beta_0)^T  \nabla^2 l(\beta_0) (\beta - \beta_0) \\
-           &= l(\beta_0) + \nabla l(\beta_0)^T(\beta - \beta_0) + \frac{1}{2}(\beta - \beta_0)^T
-             H_l(\beta_0) (\beta - \beta_0)
-\end{align*}
+  &= l(\beta_0) + \nabla l(\beta_0)^T(\beta - \beta_0) + \frac{1}{2}(\beta - \beta_0)^T
+             H_l(\beta_0) (\beta - \beta_0)\\
+  &= \left(  l(\beta_0) -  \nabla l(\beta_0)^T \beta_0 + \frac{1}{2} \beta_0^T H_l(\beta_0) \beta_0 \right)\\
+  &+ \nabla l(\beta_0)^T \beta - \beta_0^T H_l(\beta_0) \beta + \frac{1}{2} \beta^T H_l(\beta_0) \beta
+ \end{align*}
 
 We can get this into the desired quadratic form by completing the square. To
 derive the form for this, we write the form we have and the form we would like,
@@ -553,6 +556,13 @@ Applying this to our problem, we get that
   v &= l(\beta_0) - \frac{1}{2} \nabla l(\beta_0)^T H_l(\beta_o)^{-1} \nabla l(\beta_0)
 \end{align*}
 
+which allows us to write
 
+\[
+q(\beta;\beta_0) = \frac{1}{2} \left(  \right)
+\]
+
+\begin{align*}
+\end{align*}
 
 \end{document}
