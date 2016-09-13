@@ -13,7 +13,6 @@ def linsolve(A,b):
     lu = linalg.lu_factor(A)
     return linalg.lu_solve(lu,b)
 
-
 def safe_exp(val):
     """Calculates the "safe exponential" of a value.
 

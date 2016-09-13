@@ -87,7 +87,6 @@ def solve(params, initial_guess, converge_step):
         oldGuess = guess
 
         grad = grad_op(guess)
-        print("Objective is " + str(llh_op(guess)))
         step = 0.0001
 
         guess = guess + grad * step
@@ -96,6 +95,6 @@ def solve(params, initial_guess, converge_step):
 
         likelihood_record.append(delta)
 
-        print(delta)
+        print(delta, guess.T)
 
     return (guess,likelihood_record)

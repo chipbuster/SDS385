@@ -35,7 +35,8 @@ genData <- function(dim){
   fname <- paste(beta,collapse="=")
   fname <- paste(fname,"csv", sep=".")
   
-  data <- genSamples(beta, 2000)
+  data <- genSamples(beta, 10000)
 
   write.table(data, file=fname, sep=",", row.names=FALSE, col.names=FALSE)
+  print(mean(data[,1]))
 }
