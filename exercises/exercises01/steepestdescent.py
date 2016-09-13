@@ -5,13 +5,14 @@ import sys
 from numpy import linalg as LA
 import pdb
 
-bump = 0.00000001 # A tiny bump for some values that really should not be zero
-smallest_safe_exponent = math.log(sys.float_info.min) + 3
-largest_safe_exponent = math.log(sys.float_info.max) - 3
-
 def safe_exp(val):
-    """Calculates the "safe exponential" of a value. If the computed exponential would
-    be too large, it replaces it with a safe value."""
+    """Calculates the "safe exponential" of a value.
+
+    If the computed exponential would result in overflow or underflow,
+    it replaces it with a safe value and warns the user."""
+
+    smallest_safe_exponent = math.log(sys.float_info.min) + 3
+    largest_safe_exponent = math.log(sys.float_info.max) - 3
 
     if val > largest_safe_exponent:
         print("[WARN]: Exponential term capped to avoid overflow. May cause divergence.")
@@ -22,6 +23,11 @@ def safe_exp(val):
     else:
         return math.exp(val)
 
+def calc_weight(x_i,B):
+    """Calculates w_i for a given x_i and beta value."""
+
+    return 1 / (1 + safe_exp(-np.dot(x_i, B)))
+
 def calc_likelihood_function(X,y,m):
     """Gives a function to determine the likelihood in the inverse logit method.
     Returns a function which takes in beta and returns the likelihood as a float."""
@@ -30,9 +36,7 @@ def calc_likelihood_function(X,y,m):
         result = 0
 
         xvecs = [ xs for xs in X ]                        # Length Samples
-        exponents = [ np.dot(x,B) for x in xvecs ]
-        expterms = [ safe_exp(z) for z in exponents ]
-        weights = [ 1.0 / (1.0 + e) for e in expterms ]
+        weights = [ calc_weight(x,B) for x in xvecs ]
 
         for i in range(len(xvecs)):
             result -= np.asscalar(y[i]) * math.log(weights[i])
@@ -40,71 +44,6 @@ def calc_likelihood_function(X,y,m):
 
         return result
     return likelihood
-
-def zoom(calc_deriv, calc_obj, a, c):
-    #Use naive bisection to find trial step
-    (alo,ahi) = a
-    (c1,c2)  = c
-
-    i = 1
-    while True:
-        aj = (ahi + alo) / 2
-        i += 1
-
-        if calc_obj(aj) > calc_obj(0) + c1 * aj * calc_deriv(0) or calc_deriv(aj) > calc_deriv(alo):
-            ahi = aj
-        else:
-            if abs(calc_deriv(aj)) <= -c2 * calc_deriv(0):
-                return aj
-            if calc_deriv(aj) * (ahi - alo) >= 0:
-                ahi = alo
-            alo = aj
-
-        if i > 30:
-            print("Breaking from zoom")
-            return aj
-
-def line_search(gradFunc, objFunc, guess, amax, c):
-    (c1,c2) = c
-    i = 1
-    found = False
-
-    searchDir = gradFunc(guess)
-
-    # Helper function to calculate scalar derivatives
-    def calc_deriv(scal):
-        g = gradFunc(guess + searchDir * scal)
-        return np.dot(g.T, searchDir)
-
-    # Helper function to calculate objective fn values
-    def calc_obj(scal):
-        return objFunc(guess + scal * searchDir)
-
-    a = 0.01 * amax
-    a_last = 0
-    a_min = a # The smallest a value so far
-
-    objZero = calc_obj(0)
-    derivZero = calc_deriv(0)
-
-    while True:
-        print(i,a)
-        if calc_obj(a) > objZero + c1 * a * derivZero or (i > 1 and calc_obj(a) >= calc_obj(a_last)):
-            astar = zoom(calc_deriv, calc_obj, (a_last, a), c)
-            return astar
-        if abs(calc_deriv(a)) <= -c2 * derivZero:
-            return a
-        if calc_deriv(a) > 0:
-            astar = zoom(calc_deriv, calc_obj, (a, a_last), c)
-            return astar
-        a_last = a
-        a = a + (amax - a) * 0.1
-
-        i += 1
-
-        if i > 30 or a - a_last < 1000* sys.float_info.min:
-            print("Breaking from line search")
-            return a
 
 def calc_grad_function(X,y,m):
     """Calculates the gradient of the inverse logit MLE given the parameters.
@@ -118,9 +57,7 @@ def calc_grad_function(X,y,m):
         # B should be a col vector with length = # features
 
         xvecs = [ xs for xs in X ]                        # Length Samples
-        exponents = [ np.dot(x,B) for x in xvecs ]
-        expterms = [ safe_exp(z) for z in exponents ]
-        weights = [ 1.0 / (1.0 + e) for e in expterms ]
+        weights = [ calc_weight(x,B) for x in xvecs ]
 
         W = np.matrix(np.diag(np.array(weights)))
 
@@ -151,9 +88,9 @@ def solve(params, initial_guess, converge_step):
 
         grad = grad_op(guess)
         print("Objective is " + str(llh_op(guess)))
-        step = line_search(grad_op, llh_op, guess, 0.5, (0.0001, 0.9))
+        step = 0.0001
 
-        guess = guess - grad * step
+        guess = guess + grad * step
 
         delta = abs(llh_op(oldGuess) - llh_op(guess))
 

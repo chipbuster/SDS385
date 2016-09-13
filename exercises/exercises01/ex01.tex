@@ -289,6 +289,11 @@
 
 \maketitle
 
+A note to the reviewer: I discovered the $\ell$ symbol halfway through this
+document but really didn't want to go back and replace all the previous usages.
+As such, both $l$ and $\ell$ appear in this document, and they're supposed to be
+the same symbol. Sorry, and I hope it isn't too distracting.
+
 \section{WLS Objective Function}
 
 The weighted least squares problem is described by the equation
@@ -431,8 +436,9 @@ are generated random uniform in $[0,50)$.
 
 Converting the code to use sparse matrix representation is pretty simple to do
 with python. Simply use the sparse solver provided by
-\texttt{scipy.sparse.linalg} to solve the problem. Stacking this solver up
-against the previous solver, we get the following values:
+\texttt{scipy.sparse.linalg} to solve the problem. Random matrices can be
+generated with given sparsity levels with \texttt{scipy.sparse.random}
+Stacking this solver up against the previous solver, we get the following values:
 
 \begin{table}[h]
   \centering
@@ -454,6 +460,17 @@ against the previous solver, we get the following values:
   by the previous test. All tests were done over 100 iterations. }
   \label{tab: solvecomparetimings}
 \end{table}
+
+You may notice something interesting about these numbers: they make no
+sense. The sparse solver is supposed to be faster than the dense solver (which
+is indeed the case in R), but it's slower here by a huge margin. This can be
+partially explained by Issue \#3831
+\footnote{https://github.com/scipy/scipy/issues/3831}, which notes that SuperLU
+is over 200 times slower than its competitor UMFPack (which is used by the R
+Matrix package).
+
+Unfortunately, I have not had the time to recompile scipy against UMFPack to
+test the difference.
 
 \section{MLE}
 
@@ -513,9 +530,41 @@ log-likelihood at $\beta_i$ in a single function, a generator is used to produce
 a gradient/likelihood function beforehand. This function is then used to
 compute the desired quantities.
 
-\lstinputlisting[language=Python]{steepestdescent.py}
+Due to length issues, the steepest descent code is not listed in this document.
+It can be found at \texttt{steepestdescent.py} 
 
 \section{Quadratic Forms Again}
+
+Note: This derivation follows the general framework of the derivation given by
+Matteo Vestrucci.
+
+Earlier, we showed that the gradient of $\ell(\beta ; \beta_0)$ could be written as
+
+\[
+    -\nabla \ell_i(\beta) = \sum\limits_i (y_i - m_iw_i) x_i
+\]
+
+Since the $i,j$th entry of $H$ is given by $H_{i,j} = \frac{\partial}{\partial
+  \beta_i}\frac{\partial}{\partial \beta_j} \ell(\beta)$, we can get the
+$i,j$th component by taking the derivative of the $i$th component of the
+gradient with respect to the $j$th variable.
+
+This, in turn, says that we can express the $i,j$th entry of the Hessian as
+
+\begin{align*}
+  H_{i,j} &= \frac{\partial}{\partial \beta_j} \sum\limits_i \left( m_i w_i x_i -
+            y_i x_i \right) \\
+          &= \frac{\partial}{\partial \beta_j} \sum\limits_i \left( m_i \frac{1}{1 + \exp(-x_i^T\beta)} x_i -
+            y_i x_i \right)\\
+          &= m_i x_{i,j}\frac{\partial}{\partial \beta_j} \left( \frac{1}{1 + \exp(-x_i^T\beta)} \right)\\
+          &= m_i x_{i,j}(-x_{j,i})\frac{-\exp(-x_i^T\beta)}{(1 + \exp(-x_i^T\beta))^2}\\
+          &= m_i x_{i,j}x_{j,i} w_i (1 - w_i)
+\end{align*}
+
+This can be expressed as $H = X^TDX$ where $D_{i,i} = m_i w_i (1 - w_i)$.
+
+Since the diagonal values are all positive, the Hessian is an SPD matrix. We
+proceed by using this form to complete the square.
 
 The second-order Taylor approximation of $l(\beta)$ about $\beta_0$ is given by
 Taylor's Theorem:
@@ -530,39 +579,56 @@ Taylor's Theorem:
   &+ \nabla l(\beta_0)^T \beta - \beta_0^T H_l(\beta_0) \beta + \frac{1}{2} \beta^T H_l(\beta_0) \beta
  \end{align*}
 
-We can get this into the desired quadratic form by completing the square. To
-derive the form for this, we write the form we have and the form we would like,
-and attempt to get the two to agree. Assuming that $M$ and $C$ are symmetric,
 
-\begin{align*}
-  a + b^Tx + \frac{1}{2} x^T C x &= \frac{1}{2} (x - y)^T M (x - y) \\
-                                 &= \frac{1}{2} \left(  x^TMx - x^TMy - y^TMx + y^TMy  \right) + v\\
- \frac{1}{2} x^T C x + b^Tx + a &= \left( \frac{1}{2} x^TMx \right) - y^TMx + \frac{1}{2}\left( y^TMy + v \right)
-\end{align*}
-
-Comparing the terms on the left and right, this suggests that
-
-\begin{align*}
-  M &= C \\
-  -y^TM = b^T \implies y &= -M^{-1}b = -C^{-1}b\\
-  v = a - \frac{1}{2} y^TMy &= a - \frac{1}{2} b^T C^{-1}b
-\end{align*}
-
-Applying this to our problem, we get that
-
-\begin{align*}
-  M &= H_l(\beta_0)\\
-  y &= H_l(\beta_0)^{-1} \nabla l(\beta_0)\\
-  v &= l(\beta_0) - \frac{1}{2} \nabla l(\beta_0)^T H_l(\beta_o)^{-1} \nabla l(\beta_0)
-\end{align*}
-
-which allows us to write
+Since we seek to optimize this expression, we can roll all of the constant terms
+into one term $c$. This gives us
 
 \[
-q(\beta;\beta_0) = \frac{1}{2} \left(  \right)
+ q(\beta ; \beta_0) = c + \left(  \nabla \ell(\beta_0)^T - \beta_0^T
+   H_l(\beta_0) \right) \beta + \frac{1}{2} \beta^T H_l(\beta_0) \beta
 \]
 
+Replacing this with our formulation for $H$, we get
+
 \begin{align*}
+  q(\beta; \beta_0)
+  &= c + \left(  \nabla \ell(\beta_0)^T - \beta_0^T
+    H_l(\beta_0) \right) \beta + \frac{1}{2} \beta^T H_l(\beta_0) \beta\\
+  &= c + \left( \nabla \ell(\beta_0)^T - \beta_0^T X^TDX \right) \beta
+    + \frac{1}{2} \beta^T X^TDX \beta
 \end{align*}
 
-\end{document}
+We have also expressed the gradient as $\nabla \ell_i(\beta) = \sum\limits_i
+(y_i - m_iw_i) x_i$, or $\nabla \ell(\beta) = X^Ts$ where $s_i = y_i - m_iw_i$.
+We can use this to further simplify the above:
+
+\begin{align*}
+  q(\beta; \beta_0)
+  &= c + \left( \nabla \ell(\beta_0)^T - \beta_0^T X^TDX \right) \beta
+    + \frac{1}{2} \beta^T X^TDX \beta\\
+  &=  c + \left( s^TX - \beta_0^T X^TDX \right) \beta
+    + \frac{1}{2} \beta^T X^TDX \beta\\
+  &= c + \left( s^T - \beta_0^T X^T D \right) X \beta + 
+    \frac{1}{2} \beta^T X^TDX \beta\\
+  &= c + \left( s^T - \beta_0^T X^T D \right) \beta_X +
+    \frac{1}{2} \beta_X^T D \beta_X
+\end{align*}
+
+where $\beta_X = X\beta$. We can get this into the desired quadratic form by
+completing the square. Given the formula from Domke's blog, we can add and
+subtract constants to get
+
+\begin{align*}
+  q(\beta ; \beta_0)
+  &= c' + \frac{1}{2} [\beta_X + D^{-1}(s - DX\beta_0)]^T \; D \; [\beta_X + D^{-1}(s - DX\beta_0)]\\
+  &= c' + \frac{1}{2} [\beta_X + (D^{-1}s^T - X\beta_0)]^T \; D \; [\beta_X + (D^{-1}s - X\beta_0)]\\
+  &= c' + \frac{1}{2} [(-D^{-1}s + X \beta_0 ) - X \beta]^T \; D \; [(-D^{-1}s + X \beta_0 ) - X \beta]^T 
+\end{align*}
+
+This gives us the final expression we're looking for, with $W_{i,i} = D_{i,i} = m_iw_i(1-w_i)$ and 
+Z = $D^{-1}s + X\beta_0 $.
+
+\section{Newton's Method}
+
+
+\end{document} 

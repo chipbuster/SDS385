@@ -2,7 +2,7 @@ import csv
 import numpy as np
 
 import steepestdescent
-#import newtonmethod
+import newtonmethod
 
 def main(filename):
     """Driver for steepest descent code."""
@@ -40,12 +40,16 @@ def main(filename):
 
     initGuess = np.matrix(np.random.rand(np.shape(predictors)[1],1)) * 0.001
 
-    solution,_ = steepestdescent.solve((predictors, response, trials), initGuess, 1e-16)
+    solution,_ = steepestdescent.solve((predictors, response, trials), initGuess, 1e-7)
 
     # Since we changed the predictors, need to reverse-transform the solution
-    solution = W * solution
+    print(solution.T)
 
-    print(solution)
+    solution1 = W * solution
+    solution2 = W.I * solution
+
+    print(solution1.T)
+    print(solution2.T)
 
 if __name__ == '__main__':
     main('wdbc.csv')

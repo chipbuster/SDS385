@@ -403,3 +403,5 @@ cabal.project.local
 Numerical Optimization {Springer Series in Operations Research}.pdf
 
 auto/
+
+.DS_Store
