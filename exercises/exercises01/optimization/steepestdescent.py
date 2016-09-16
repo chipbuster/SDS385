@@ -2,99 +2,81 @@ import math
 import numpy as np
 import csv
 import sys
-from numpy import linalg as LA
+import os
 import pdb
 
-def safe_exp(val):
-    """Calculates the "safe exponential" of a value.
-
-    If the computed exponential would result in overflow or underflow,
-    it replaces it with a safe value and warns the user."""
-
-    smallest_safe_exponent = math.log(sys.float_info.min) + 3
-    largest_safe_exponent = math.log(sys.float_info.max) - 3
-
-    if val > largest_safe_exponent:
-        print("[WARN]: Exponential term capped to avoid overflow. May cause divergence.")
-        return math.exp(largest_safe_exponent)
-    elif val < smallest_safe_exponent:
-        print("[WARN]: Exponential term capped to avoid underflow. May cause divergence.")
-        return math.exp(smallest_safe_exponent)
-    else:
-        return math.exp(val)
-
-def calc_weight(x_i,B):
-    """Calculates w_i for a given x_i and beta value."""
-
-    return 1 / (1 + safe_exp(-np.dot(x_i, B)))
-
-def calc_likelihood_function(X,y,m):
-    """Gives a function to determine the likelihood in the inverse logit method.
-    Returns a function which takes in beta and returns the likelihood as a float."""
-
-    def likelihood(B):
-        result = 0
-
-        xvecs = [ xs for xs in X ]                        # Length Samples
-        weights = [ calc_weight(x,B) for x in xvecs ]
-
-        for i in range(len(xvecs)):
-            result -= np.asscalar(y[i]) * math.log(weights[i])
-            result -= np.asscalar(m[i] - y[i]) * math.log(1 - weights[i])
-
-        return result
-    return likelihood
-
-def calc_grad_function(X,y,m):
-    """Calculates the gradient of the inverse logit MLE given the parameters.
-    Return is a lambda function which takes a single parameter and returns float."""
-
-    # X is a feature matrix: columns are features, rows are entries. Dim: samples x features
-    # y is a response vector: one column of responses                Dim: samples x 1
-    # m is a trials vector                                           Dim: samples x 1
-
-    def grad(B):
-        # B should be a col vector with length = # features
-
-        xvecs = [ xs for xs in X ]                        # Length Samples
-        weights = [ calc_weight(x,B) for x in xvecs ]
-
-        W = np.matrix(np.diag(np.array(weights)))
-
-        gradient = X.T * (y - W * m)
-        return gradient
-
-    return grad
+# Add common modules from this project
+sys.path.append(os.path.join(os.path.dirname(__file__),'..','common'))
+import logistic_common as lc
+import data_common as dc
+import plot_common as pc
 
 def solve(params, initial_guess, converge_step):
 
     (X,y,m) = params
 
-    # A function which calculates the gradient at a point
-    grad_op = calc_grad_function(X,y,m)
+    #A function which calculates the gradient at a point
+    grad_func = lc.gen_gradient_function(X,y,m)
 
     # A function which calculates the likelihood at a point
-    llh_op = calc_likelihood_function(X,y,m)
+    llh_func = lc.gen_likelihood_function(X,y,m)
 
-    delta = sys.float_info.max
+    delta = sys.float_info.max   # Initial values for change between iteration
     guess = initial_guess
+    LLVal = 0             # Dummy likelihood value
+    iterct = 0
 
     # For storing likelihoods (for tracking convergence)
     likelihood_record = []
 
-    ## Main Steepest Descent Loop
+    ## Main Steepest Descent Lofunc
     while delta > converge_step:
+        oldLLVal = LLVal
         oldGuess = guess
 
-        grad = grad_op(guess)
-        step = 0.0001
+        grad = grad_func(guess)
+        step = 0.001
 
         guess = guess + grad * step
 
-        delta = abs(llh_op(oldGuess) - llh_op(guess))
+        # Calculate current likelihood for convergence determination
+        LLVal = llh_func(guess)
+        delta = abs( oldLLVal - LLVal )
 
-        likelihood_record.append(delta)
+        likelihood_record.append(LLVal)
 
-        print(delta, guess.T)
+        # Update the user and break out if needed
+        iterct += 1
+        print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
+        if iterct > 10000:
+            print("Reached 10000 iterations w/o convergence, aborting computation")
+            break
 
     return (guess,likelihood_record)
+
+def main(csvfile):
+    # Assume that csvfile points to wdbc.csv
+    np.random.seed(5)
+
+    (X,y,m) = dc.process_wdbc(csvfile)
+    W = dc.prescaling_matrix(X)
+
+    # Scale the predictors
+    X = X * W.I
+
+    # Generate initial guess
+    numParams = np.shape(X)[1]
+    initGuess = np.random.rand(numParams, 1)
+
+    convergeDiff = 1e-2  #Some default value...
+
+    (solution, records) = solve( (X,y,m) , initGuess , convergeDiff )
+
+    # Transform solution back to original space
+    solution = W * solution   # Since W is diagonal, inversion is okayish
+
+    # Plot results
+    pc.plot_objective(records)
+
+if __name__ == "__main__":
+    main(sys.argv[1])

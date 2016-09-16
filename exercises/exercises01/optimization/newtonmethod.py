@@ -1,7 +1,13 @@
 import numpy as np
-from scipy import linalg
+from scipy import linalg as spla
 import sys
 import math
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__),'..','common'))
+import logistic_common as lc
+import data_common as dc
+import plot_common as pc
 
 ## Note: capital "B" is often used here as a substitute for beta.
 
@@ -9,137 +15,103 @@ import math
 # that H = X^T D X, we calculate only the D matrix and use the formulae derived in the
 # homework to solve the problem.
 
-def linsolve(A,b):
-    lu = linalg.lu_factor(A)
-    return linalg.lu_solve(lu,b)
+def gen_hessian_function(X,y,m):
+    """Gives a function to calculate the Hessian matrix"""
 
-def safe_exp(val):
-    """Calculates the "safe exponential" of a value.
+    N, P = np.shape(X)
 
-    If the computed exponential would result in overflow or underflow,
-    it replaces it with a safe value and warns the user."""
+    def calc_Hess(B):
+        weights = [ lc.calc_weight(x,B) for x in X ]
 
-    smallest_safe_exponent = math.log(sys.float_info.min) + 3
-    largest_safe_exponent = math.log(sys.float_info.max) - 3
-
-    if val > largest_safe_exponent:
-        print("[WARN]: Exponential term capped to avoid overflow. May cause divergence.")
-        return math.exp(largest_safe_exponent)
-    elif val < smallest_safe_exponent:
-        print("[WARN]: Exponential term capped to avoid underflow. May cause divergence.")
-        return math.exp(smallest_safe_exponent)
-    else:
-        return math.exp(val)
-
-def calc_weight(x_i,B):
-    """Calculates w_i for a given x_i and beta value."""
-
-    return 1 / (1 + safe_exp(-np.dot(x_i, B)))
-
-def calc_likelihood_function(X,y,m):
-    """Gives a function to determine the likelihood in the inverse logit method.
-    Returns a function which takes in beta and returns the likelihood as a float."""
-
-    def likelihood(B):
-        result = 0
-
-        xvecs = [ xs for xs in X ]                        # Length Samples
-        weights = [ calc_weight(x,B) for x in xvecs ]
-
-        for i in range(len(xvecs)):
-            result -= np.asscalar(y[i]) * math.log(weights[i])
-            result -= np.asscalar(m[i] - y[i]) * math.log(1 - weights[i])
-
-        return result
-    return likelihood
-
-def calc_s_vector(X,y,m):
-    """Gives a function to calculate the vector s, where s_i = y_i - m_i w_i"""
-
-    # X is a feature matrix: columns are features, rows are entries. Dim: samples x features
-    # y is a response vector: one column of responses                Dim: samples x 1
-    # m is a trials vector                                           Dim: samples x 1
-
-    def calc_s(B):
-        # B should be a col vector with length = # features
-
-        xvecs = [ xs for xs in X ]                        # Length Samples
-        weights = [ calc_weight(x,B) for x in xvecs ]
-        w = np.matrix(weights).T                          #Transpose to get a column vector
-
-        s = np.matrix(y - np.multiply(m,w))       # yi - mi * wi
-
-        return s
-
-    return calc_s
-
-def calc_D_matrix(X, y, m):
-    """Gives a function to calculate the diagonal matrix D, where D(i,i) = m_i w_i (1 - w_i)."""
-
-    def calc_D(B):
-        xvecs = [ xs for xs in X ]                        # Length Samples
-        weights = [ calc_weight(x,B) for x in xvecs ]
-        w = np.matrix(weights).T                          # Transpose to make column vector
-
-        d = np.multiply(m, w)
+        w = np.array(weights)  # Arrays naturally do elementwise multiplication
         oneMinusW = np.ones(np.shape(w)) - w
-        d = np.multiply(m, oneMinusW)
 
-        D = np.diagflat(d)     #Generate diagonal array with d as its diagonal
+        d = np.array(m.T) * w * oneMinusW
 
-        return D
+        hess = np.zeros((P,P))
 
-    return calc_D
+        for i in range(N):
+            hess += np.outer(X[i],X[i]) * d[0,i]
 
-# This one does a direct calculation since it needs so many parameters
-def calc_Z_vector(D, s, X, B0):
-    """Calculate the value of Z given the input parameters"""
+        return hess
 
-    part1 = X * B0
-    part2 = linsolve(D,s)   # D.I * s --> D x = s
+    return calc_Hess
 
-    return part1 - part2
-
-def solve(params, initial_guess, converge_criteria):
+def solve(params, initial_guess, converge_step):
 
     (X,y,m) = params
 
+    #A function which calculates the gradient at a point
+    grad_func = lc.gen_gradient_function(X,y,m)
+
     # A function which calculates the likelihood at a point
-    llh_op = calc_likelihood_function(X,y,m)
+    llh_func = lc.gen_likelihood_function(X,y,m)
 
-    # A function which calculates the s-vector
-    get_s = calc_s_vector(X,y,m)
+    hess_func = gen_hessian_function(X,y,m)
 
-    # A function which calculates the D-matrix
-    get_D = calc_D_matrix(X,y,m)
-
-    delta = sys.float_info.max
+    delta = sys.float_info.max   # Initial values for change between iteration
     guess = initial_guess
+    LLVal = 0             # Dummy likelihood value
+    iterct = 0
 
     # For storing likelihoods (for tracking convergence)
     likelihood_record = []
 
-    ## Main Steepest Descent Loop
-    while delta > converge_criteria:
+    ## Main Steepest Descent Lofunc
+    while delta > converge_step:
+        oldLLVal = LLVal
         oldGuess = guess
 
-        s = get_s(guess)
-        D = get_D(guess)
-        Z = calc_Z_vector(D, s, X, guess)
+        grad = grad_func(guess)
+        hess = hess_func(guess)
 
-        # We seek to minimize 1/2 (z - X * B).T D (z - X * B)
+        # Solve for search direction
 
-        A = X.T * D * X
-        b = X.T * D * Z
+        searchInfo = spla.lu_factor(hess)
+        searchDir = spla.lu_solve(searchInfo, grad)
 
-        step = linsolve(A,b)
+        step = 1
 
-        guess = guess - step
+        guess = guess + searchDir * step
 
-        delta = abs(llh_op(oldGuess) - llh_op(guess))
+        # Calculate current likelihood for convergence determination
+        LLVal = llh_func(guess)
+        delta = abs( oldLLVal - LLVal )
 
-        likelihood_record.append(delta)
+        likelihood_record.append(LLVal)
 
-        print(delta)
+        # Update the user and break out if needed
+        iterct += 1
+        print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
+        if iterct > 10000:
+            print("Reached 10000 iterations w/o convergence, aborting computation")
+            break
 
     return (guess,likelihood_record)
+
+def main(csvfile):
+    # Assume that csvfile points to wdbc.csv
+    np.random.seed(5)
+
+    (X,y,m) = dc.process_wdbc(csvfile)
+    W = dc.prescaling_matrix(X)
+
+    # Scale the predictors
+    X = X * W.I
+
+    # Generate initial guess
+    numParams = np.shape(X)[1]
+    initGuess = np.random.rand(numParams, 1)
+
+    convergeDiff = 1e-2  #Some default value...
+
+    (solution, records) = solve( (X,y,m) , initGuess , convergeDiff )
+
+    # Transform solution back to original space
+    solution = W * solution   # Since W is diagonal, inversion is okayish
+
+    # Plot results
+    pc.plot_objective(records)
+
+if __name__ == "__main__":
+    main(sys.argv[1])

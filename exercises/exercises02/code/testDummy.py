@@ -4,14 +4,10 @@ import sys
 import os
 import numpy as np
 
-import steepestdescent
-import newtonmethod
 
-## Intended to test optimization of dummy data generated
-#  by genTestData.R.
+import sgd
 
 def main(filename):
-    """Driver for steepest descent code."""
 
     rawdata = []
 
@@ -39,18 +35,21 @@ def main(filename):
     # Parse filename to get initial guess
     elem = filename.split("=")
     elem[-1] = os.path.splitext(elem[-1])[0]
-    
-    guesses = [ float(x) for x in elem ]
-    guesses = [ x + random.uniform(-x/2, x/2) for x in guesses]
 
-    initGuess = np.matrix(guesses).T
+    # initGuess = np.matrix([0.709628762541668,-2.34439885373377,-1.06972540358824,
+   #           -0.0572196490853194,0.894743019490163, -1.75799494823574,
+   #           -1.54356907773596, -0.151108494151544, 1.51847526162427]).T
+    # initGuess = np.random.rand(np.shape(initGuess)[0],1) * 0.5 + initGuess
+
+    initGuess = np.matrix(np.zeros( ( 9 , 1 ) ) )
 
     print(initGuess)
 
-    solution,_ = newtonmethod.solve((predictors, response, trials), initGuess, 1e-2)
+    solution,loglik = sgd.solve((predictors, response, trials), initGuess, 1)
 
-    # Since we changed the predictors, need to reverse-transform the solution
     print(solution.T)
+    print()
+    print(loglik)
 
 if __name__ == '__main__':
     main(sys.argv[1])
