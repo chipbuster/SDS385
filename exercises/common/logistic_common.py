@@ -32,10 +32,10 @@ def calc_weight(x_i, B):
 
     weight = np.asscalar(spsp.expit( np.dot(x_i, B) ))
     if weight == 0:
-        weight = 0.1
+        weight = 1e-2
         warn_user_numerical()
     elif weight == 1:
-        weight = 0.9
+        weight = 1 - 1e2
         warn_user_numerical()
 
     return weight

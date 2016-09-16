@@ -101,6 +101,37 @@ def calc_sgd_step(B, x, y, m):
 
     return gradient
 
+def calc_llh_point_contribution(B, x, y, m):
+    """
+    Calculates the contribution to the total likelihood of the selected sample point
+
+    B: (cvector) -- Current guess for beta
+    x: (cvector) -- Predictors of a single sample point
+    y: (scalar)  -- Response of sample point
+    m: (scalar)  -- Number of trials on this sample point, m_i
+    """
+
+    # -L_i(B) = y_i \log(w_i) + (m_i - y_i) \log(1 - w_i)
+
+    w = lc.calc_weight(x.T,B)
+
+    return -np.asscalar(y * math.log(w)  + (m - y) * math.log(1 - w) )
+
+def robbins_munro_stepsize(t):
+    """
+       Calculate the stepsize for Robbins-Munro step sizes
+
+       t: (scalar) -- number of steps taken so far
+    """
+
+    C = 0.3
+    a = 0.8
+    t0 = 1
+
+    p2 = math.pow( t + t0 , -a )
+    return C * p2
+
+
 def solve(params, initial_guess, converge_step):
     """Calculates optimization problem with stochastic descent."""
 
@@ -113,8 +144,8 @@ def solve(params, initial_guess, converge_step):
     delta = sys.float_info.max   # Initial values for change between iteration
     guess = initial_guess
     LLVal = 0             # Dummy likelihood value
+    LLAvg = 0             # Dummy average likelihood value
     iterct = 0
-
 
     likelihood_record = []
 
@@ -125,23 +156,35 @@ def solve(params, initial_guess, converge_step):
         (xSamp, ySamp, mSamp) = samplePoints.get_sample()
 
         searchDir = calc_sgd_step(guess, xSamp, ySamp, mSamp)
-        step = 0.001
+        step = robbins_munro_stepsize(iterct)
 
         guess = guess - searchDir * step
+
+        iterct += 1
 
         # Calculate current likelihood for convergence determination
         LLVal = llh_func(guess)
         delta = abs( oldLLVal - LLVal )
 
+        # Calculating the entire likelihood is expensive and destroys the speed
+        # We can calculate the running average of individial contributions instead
+
+        #contrib = calc_llh_point_contribution(guess,xSamp,ySamp,mSamp)
+
+        #LLAvg *= max(1, iterct - 1)
+        #LLAvg += calc_llh_point_contribution(guess,xSamp,ySamp,mSamp)
+        #LLAvg /= iterct
+
+        #LLVal = LLAvg
         likelihood_record.append(LLVal)
 
         # Update the user and break out if needed
-        iterct += 1
         print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
         if iterct > 10000:
             print("Reached 10000 iterations w/o convergence, aborting computation")
             break
 
+    print("SGD finished after " + str(samplePoints.epochs) + " training epochs.")
     return (guess,likelihood_record)
 
 def main(csvfile):
@@ -158,7 +201,7 @@ def main(csvfile):
     numParams = np.shape(X)[1]
     initGuess = np.random.rand(numParams, 1)
 
-    convergeDiff = 1e-4  #Some default value...
+    convergeDiff = 1e-5  #Some default value...
 
     (solution, records) = solve( (X,y,m) , initGuess , convergeDiff )
 
