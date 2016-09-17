@@ -1,50 +1,17 @@
-import numpy as np
-from scipy import linalg as spla
-from numpy import linalg as npla
-import sys
 import math
+import numpy as np
+import csv
+import sys
 import os
-from copy import copy
+import pdb
 
-sys.path.append(os.path.join(os.path.dirname(__file__),'..','common'))
+# Add common modules from this project
+sys.path.append(os.path.join(os.path.dirname(__file__),'common'))
 import logistic_common as lc
 import data_common as dc
 import plot_common as pc
 
-
-from scipy.optimize import fmin_cg
-from scipy import linalg as la
-from matplotlib import pyplot as plt
-from scipy.special import expit
-from scipy.stats import binom
-import scipy.misc as misc
-
-## Note: capital "B" is often used here as a substitute for beta.
-
-## Note 2: This code does not actually calculate the Hessian matrix. Instead, knowing
-# that H = X^T D X, we calculate only the D matrix and use the formulae derived in the
-# homework to solve the problem.
-
-def gen_hessian_function(X,y,m):
-    """Gives a function to calculate the Hessian matrix"""
-
-    N, P = np.shape(X)
-
-    def calc_Hess(B):
-        weights = [ lc.calc_weight(x,B) for x in X ]
-        oneMinusW = [ 1 - w for w in weights ]
-
-        d_elem = [None] * N
-        for j in range(len(weights)):
-            d_elem[j] = np.asscalar(m[j]) * weights[j] * oneMinusW[j]
-
-        D = np.diagflat(np.array(d_elem))
-
-        hess = X.T * D * X
-
-        return hess
-
-    return calc_Hess
+from backtrack import backtracking_search
 
 def solve(params, initial_guess, converge_step):
 
@@ -55,8 +22,6 @@ def solve(params, initial_guess, converge_step):
 
     # A function which calculates the likelihood at a point
     llh_func = lc.gen_likelihood_function(X,y,m)
-
-    hess_func = gen_hessian_function(X,y,m)
 
     delta = sys.float_info.max   # Initial values for change between iteration
     guess = initial_guess
@@ -72,17 +37,12 @@ def solve(params, initial_guess, converge_step):
         oldGuess = guess
 
         grad = grad_func(guess)
-        hess = hess_func(guess)
+        searchDir = -grad
+        step = backtracking_search(grad_func, llh_func, guess, searchDir)
 
-        # Solve for search direction
+        print(step)
 
-        searchDir = spla.solve(hess , grad)
-
-        assert npla.norm(hess * searchDir - grad) < 0.1, "Bad solve"
-
-        print(searchDir)
-
-        guess = guess - searchDir * 0.1
+        guess = guess - grad * step
 
         # Calculate current likelihood for convergence determination
         LLVal = llh_func(guess)
@@ -111,9 +71,9 @@ def main(csvfile):
 
     # Generate initial guess
     numParams = np.shape(X)[1]
-    initGuess = np.zeros((numParams, 1))
+    initGuess = np.random.rand(numParams, 1)
 
-    convergeDiff = 1e-2  #Some default value...
+    convergeDiff = 1e-4  #Some default value...
 
     (solution, records) = solve( (X,y,m) , initGuess , convergeDiff )
 
