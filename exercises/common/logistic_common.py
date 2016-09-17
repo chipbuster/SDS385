@@ -30,14 +30,8 @@ def calc_weight(x_i, B):
     Both arguments should be column vectors.
     """
 
-    weight = np.asscalar(spsp.expit( np.dot(x_i, B) ))
-    if weight == 0:
-        weight = 1e-2
-        warn_user_numerical()
-    elif weight == 1:
-        weight = 1 - 1e2
-        warn_user_numerical()
-
+    exponent = np.dot(x_i, B)
+    weight = np.asscalar(spsp.expit( exponent ))
     return weight
 
 def gen_likelihood_function(X,y,m):
@@ -56,18 +50,10 @@ def gen_likelihood_function(X,y,m):
     def likelihood(B):
         result = 0  # value initialization
 
-        weights = [ calc_weight(x,B) for x in X ] #Generate w_i values
+        exp = np.dot(X,B)
+        w = spsp.expit(exp)
+        return -spst.binom.logpmf(y,m,w).sum()
 
-        # If the weights are zero or one, we can either terminate the simulation
-        # or warn the user and do some adjusting. I choose to do the latter,
-        # since the former is achieved by crashing the program.
-
-        # Loop over the individual contribution from each entry and add them
-        for i in range(len(weights)):
-            result -= np.asscalar(y[i]) * math.log(weights[i])
-            result -= np.asscalar(m[i] - y[i]) * math.log(1 - weights[i])
-
-        return result
     return likelihood
 
 def gen_gradient_function(X,y,m):
@@ -82,12 +68,17 @@ def gen_gradient_function(X,y,m):
     m : trial count vector, N x 1
     """
 
+    (N,P) = np.shape(X)
+
     def grad(B):
-        weights = [ calc_weight(x,B) for x in X ]
+        exp = np.dot(X,B)
+        w = spsp.expit(exp)
 
-        W = np.matrix(np.diag(np.array(weights)))
+        W = np.diagflat(w)
 
-        gradient = X.T * (y - W * m)
+        coeffs = np.matrix( W * m - y )
+
+        gradient = X.T * coeffs
         return gradient
 
     return grad

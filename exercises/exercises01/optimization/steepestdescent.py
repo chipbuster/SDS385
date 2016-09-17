@@ -37,7 +37,7 @@ def solve(params, initial_guess, converge_step):
         grad = grad_func(guess)
         step = 0.001
 
-        guess = guess + grad * step
+        guess = guess - grad * step
 
         # Calculate current likelihood for convergence determination
         LLVal = llh_func(guess)
