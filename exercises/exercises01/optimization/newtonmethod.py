@@ -1,13 +1,23 @@
 import numpy as np
 from scipy import linalg as spla
+from numpy import linalg as npla
 import sys
 import math
 import os
+from copy import copy
 
 sys.path.append(os.path.join(os.path.dirname(__file__),'..','common'))
 import logistic_common as lc
 import data_common as dc
 import plot_common as pc
+
+
+from scipy.optimize import fmin_cg
+from scipy import linalg as la
+from matplotlib import pyplot as plt
+from scipy.special import expit
+from scipy.stats import binom
+import scipy.misc as misc
 
 ## Note: capital "B" is often used here as a substitute for beta.
 
@@ -22,16 +32,16 @@ def gen_hessian_function(X,y,m):
 
     def calc_Hess(B):
         weights = [ lc.calc_weight(x,B) for x in X ]
+        oneMinusW = [ 1 - w for w in weights ]
 
-        w = np.array(weights)  # Arrays naturally do elementwise multiplication
-        oneMinusW = np.ones(np.shape(w)) - w
+        d_elem = [None] * N
+        for j in range(len(weights)):
+            d_elem[j] = np.asscalar(m[j]) * weights[j] * oneMinusW[j]
 
-        d = np.array(m.T) * w * oneMinusW
 
-        hess = np.zeros((P,P))
+        D = np.diagflat(np.array(d_elem))
 
-        for i in range(N):
-            hess += np.outer(X[i],X[i]) * d[0,i]
+        hess = X.T * D * X
 
         return hess
 
@@ -67,12 +77,13 @@ def solve(params, initial_guess, converge_step):
 
         # Solve for search direction
 
-        searchInfo = spla.lu_factor(hess)
-        searchDir = spla.lu_solve(searchInfo, grad)
+        searchDir = spla.solve(hess , grad)
 
-        step = 1
+        assert npla.norm(hess * searchDir - grad) < 0.1, "Bad solve"
 
-        guess = guess + searchDir * step
+        print(searchDir)
+
+        guess = guess - searchDir * 0.1
 
         # Calculate current likelihood for convergence determination
         LLVal = llh_func(guess)
@@ -101,7 +112,7 @@ def main(csvfile):
 
     # Generate initial guess
     numParams = np.shape(X)[1]
-    initGuess = np.random.rand(numParams, 1)
+    initGuess = np.zeros((numParams, 1))
 
     convergeDiff = 1e-2  #Some default value...
 
