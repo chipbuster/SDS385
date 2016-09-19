@@ -4,13 +4,14 @@ import csv
 import sys
 import os
 import pdb
-from time import time
 
 # Add common modules from this project
-sys.path.append(os.path.join(os.path.dirname(__file__),'..','common'))
+sys.path.append(os.path.join(os.path.dirname(__file__),'common'))
 import logistic_common as lc
 import data_common as dc
 import plot_common as pc
+
+from backtrack import backtracking_search
 
 def solve(params, initial_guess, converge_step):
 
@@ -27,32 +28,25 @@ def solve(params, initial_guess, converge_step):
     LLVal = 0             # Dummy likelihood value
     iterct = 0
 
-    prevtime = time()
-    times = []
-
     # For storing likelihoods (for tracking convergence)
     likelihood_record = []
 
     ## Main Steepest Descent Lofunc
-    while delta > converge_step:
+    for i in range(5):
         oldLLVal = LLVal
         oldGuess = guess
 
         grad = grad_func(guess)
-        step = 0.001
+        searchDir = -grad
+        step = backtracking_search(grad_func, llh_func, guess, searchDir)
 
-        guess = guess - grad * step
+        guess = guess + searchDir * step
 
         # Calculate current likelihood for convergence determination
         LLVal = llh_func(guess)
         delta = abs( oldLLVal - LLVal )
 
         likelihood_record.append(LLVal)
-
-        newtime = time()
-        times.append(newtime - prevtime)
-        prevtime = newtime
-
 
         # Update the user and break out if needed
         iterct += 1
@@ -61,7 +55,6 @@ def solve(params, initial_guess, converge_step):
             print("Reached 10000 iterations w/o convergence, aborting computation")
             break
 
-    print("Average time was " + str(sum(times) / len(times)))
     return (guess,likelihood_record)
 
 def main(csvfile):
@@ -78,7 +71,7 @@ def main(csvfile):
     numParams = np.shape(X)[1]
     initGuess = np.random.rand(numParams, 1)
 
-    convergeDiff = 1e-2  #Some default value...
+    convergeDiff = 1e-4  #Some default value...
 
     (solution, records) = solve( (X,y,m) , initGuess , convergeDiff )
 

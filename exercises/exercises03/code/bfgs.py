@@ -4,17 +4,24 @@ import csv
 import sys
 import os
 import pdb
-from time import time
+from numpy import linalg as npla
 
 # Add common modules from this project
-sys.path.append(os.path.join(os.path.dirname(__file__),'..','common'))
+sys.path.append(os.path.join(os.path.dirname(__file__),'common'))
 import logistic_common as lc
 import data_common as dc
 import plot_common as pc
 
+from backtrack import backtracking_search
+from newtonmethod import gen_hessian_function
+
 def solve(params, initial_guess, converge_step):
 
+
+    ### VALUE INITIALIZATION
+
     (X,y,m) = params
+    (N,P) = np.shape(X)
 
     #A function which calculates the gradient at a point
     grad_func = lc.gen_gradient_function(X,y,m)
@@ -22,46 +29,80 @@ def solve(params, initial_guess, converge_step):
     # A function which calculates the likelihood at a point
     llh_func = lc.gen_likelihood_function(X,y,m)
 
+    # A function to calculate the Hessian (only used for initialization)
+    hess_func = gen_hessian_function(X,y,m)
+
     delta = sys.float_info.max   # Initial values for change between iteration
     guess = initial_guess
     LLVal = 0             # Dummy likelihood value
     iterct = 0
 
-    prevtime = time()
-    times = []
-
     # For storing likelihoods (for tracking convergence)
     likelihood_record = []
 
-    ## Main Steepest Descent Lofunc
-    while delta > converge_step:
+    ### STEEPEST DESCENT BURN-IN
+
+    # Do a few iterations of steepest descent to burn in Hessian
+    B = hess_func(guess)
+    while npla.cond(B) > 1e6:
         oldLLVal = LLVal
         oldGuess = guess
 
         grad = grad_func(guess)
-        step = 0.001
+        searchDir = -grad
+        step = backtracking_search(grad_func, llh_func, guess, searchDir)
 
-        guess = guess - grad * step
+        guess = guess + searchDir * step
+        B = hess_func(guess)
+
+        oldGrad = grad
+
+    ### ACTUAL BFGS CODE
+
+    # We now have a suitable B for inversion. Calculate it and update w/ BFGS
+    H = B.I
+    grad = grad_func(guess) #Also compute gradient so BGFS has a "previous gradient"
+
+    # BFGS Mainloop
+    while delta > converge_step:
+        # Find search direction and update
+        searchDir = -np.dot(H, oldGrad)
+        step = backtracking_search(grad_func, llh_func, guess, searchDir)
+        guess = guess + searchDir * step
+
+        # Update gradient guess
+        grad = grad_func(guess)
+
+        # Update inverse Hessian approximation
+        s = (guess - oldGuess)
+        y = (grad - oldGrad)
+        p = 1 / np.asscalar(np.dot(y.T, s))
+        I = np.identity(P)
+
+        # Calculate update matrix (I - p * s * y.T)
+        updMat = I - p * s * y.T
+
+        # Update H
+        H = updMat * H * updMat + p * s * s.T
 
         # Calculate current likelihood for convergence determination
         LLVal = llh_func(guess)
         delta = abs( oldLLVal - LLVal )
 
+        # Update recordkeeping values
+        oldLLVal = LLVal
+        oldGuess = guess
+        oldGrad = grad
         likelihood_record.append(LLVal)
-
-        newtime = time()
-        times.append(newtime - prevtime)
-        prevtime = newtime
-
 
         # Update the user and break out if needed
         iterct += 1
-        print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
+        print("Iter: " + str(iterct) + ", objective is: " + str(LLVal)\
+              + " Step size is: "  + str(step))
         if iterct > 10000:
             print("Reached 10000 iterations w/o convergence, aborting computation")
             break
 
-    print("Average time was " + str(sum(times) / len(times)))
     return (guess,likelihood_record)
 
 def main(csvfile):
@@ -78,7 +119,7 @@ def main(csvfile):
     numParams = np.shape(X)[1]
     initGuess = np.random.rand(numParams, 1)
 
-    convergeDiff = 1e-2  #Some default value...
+    convergeDiff = 1e-4  #Some default value...
 
     (solution, records) = solve( (X,y,m) , initGuess , convergeDiff )
 
