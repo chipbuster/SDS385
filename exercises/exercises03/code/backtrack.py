@@ -10,9 +10,9 @@ def backtracking_search(grad_func, obj_func, guess, searchDir):
     searchDir:  (cvector)  direction to search along
     """
 
-    ratio = 0.7 # How much do we decrease the step size each time?
-    step = 1     # Initial trial value (almost certainly wrong)
-    c1 = 1e-4    # Value suggested by book
+    ratio = 0.65 # How much do we decrease the step size each time?
+    step = 0.5     # Initial trial value (almost certainly wrong)
+    c1 = 1e-6    # Value suggested by book
 
 
     while obj_func(guess + searchDir * step) > \

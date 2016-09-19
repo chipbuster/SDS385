@@ -325,6 +325,59 @@ step sizes, steepest descent converges in under 300 iterations, even at a
 tolerance of $10^{-5}$, using a ratio (upon step size failure) of 0.55.
 
 Examination of the step sizes produced by the code shows that while most of the
-steps are the same order of magnitude, they vary by up to a factor of 8.
+steps are the same order of magnitude, they vary by up to a factor of 8, which
+corresponds to 3 shortenings of the interval.
+
+\section{Quasi-Newton and BGFS}
+
+Computing the Hessian in Newton's method is a time-consuming task, and solving
+it is an $O(n^3)$ procedure.
+
+Instead, we can create an approximation to the Hessian and solve with the
+approximation. If the approximation is done well, we can still get superlinear
+convergence for less cost.
+
+By expanding the Taylor approximation near a local minimum of the objective
+function, we find that
+
+\[
+  \nabla f_{k+1}(x_{k+1} - x_k) \approx \nabla f_k+1 - \nabla f_k
+\]
+
+This suggests to us that for our approximation, $B_{k+1}$, to be valid, it
+should satisfy the rule
+
+\[
+  B_{k+1}(x_{k+1} - x_k) = \nabla f_k+1 - \nabla f_k
+\]
+
+or, defining $s_k = x_{k+1} - x_k$, and $y_k = \nabla f_k+1 - \nabla f_k$, this
+can be written
+
+\[
+  B_{k+1}s_k = y_k
+\]
+
+The rule we use to generate the approximation is the
+Broyden-Fletcher-Goldfarb-Shanno method (BGFS), which states that
+$B$ should be updated according to the following rule:
+
+\[
+  B_{k+1} = B_k - \frac{B_ks_ks_k^TB_k}{s_k^T B_k s_k} + \frac{y_ky_k^T}{y_k^Ts_k}
+\]
+
+Now, in theory, we can solve the the equation $B_{k+1}s_{k+1} = y_{k+1}$ to find the
+search direction. However, in practice, since the Hessian changes at every
+iteration, we would need to spend $O(n^3)$ operations to factor it before
+solving. Since we are working with an approximation of the Hessian anyways, it
+is simpler to compute an approximation of the \textit{inverse} of the Hessian.
+
+If we define $H_k = B_K^{-1}$, the BGFS update rule becomes
+
+\[
+  H_{k+1} = \left( I - \rho_ks_ky_k^T \right) H_k (I - \rho_ky_ks_k^T) + \rho_ks_ks_k^T 
+\]
+
+where $\rho_k = 1 / y_k^Ts_k$.
 
 \end{document}
