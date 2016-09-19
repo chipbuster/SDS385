@@ -4,6 +4,7 @@ import csv
 import sys
 import os
 import pdb
+from time import time
 
 # Add common modules from this project
 sys.path.append(os.path.join(os.path.dirname(__file__),'..','common'))
@@ -26,6 +27,9 @@ def solve(params, initial_guess, converge_step):
     LLVal = 0             # Dummy likelihood value
     iterct = 0
 
+    prevtime = time()
+    times = []
+
     # For storing likelihoods (for tracking convergence)
     likelihood_record = []
 
@@ -45,6 +49,11 @@ def solve(params, initial_guess, converge_step):
 
         likelihood_record.append(LLVal)
 
+        newtime = time()
+        times.append(newtime - prevtime)
+        prevtime = newtime
+
+
         # Update the user and break out if needed
         iterct += 1
         print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
@@ -52,6 +61,7 @@ def solve(params, initial_guess, converge_step):
             print("Reached 10000 iterations w/o convergence, aborting computation")
             break
 
+    print("Average time was " + str(sum(times) / len(times)))
     return (guess,likelihood_record)
 
 def main(csvfile):
