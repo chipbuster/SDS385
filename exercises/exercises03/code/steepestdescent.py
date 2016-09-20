@@ -32,7 +32,7 @@ def solve(params, initial_guess, converge_step):
     likelihood_record = []
 
     ## Main Steepest Descent Lofunc
-    for i in range(5):
+    while delta > converge_step:
         oldLLVal = LLVal
         oldGuess = guess
 
@@ -50,7 +50,7 @@ def solve(params, initial_guess, converge_step):
 
         # Update the user and break out if needed
         iterct += 1
-        print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
+        print("Iter: " + str(iterct) + ", objective is " + str(LLVal) + " step size: " + str(step)) 
         if iterct > 10000:
             print("Reached 10000 iterations w/o convergence, aborting computation")
             break
