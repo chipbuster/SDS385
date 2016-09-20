@@ -1,7 +1,7 @@
 source("read_svmlight_class.R")
 
 # Where are the files stored?
-base_dir = "~/Downloads/url_svmlight/"
+base_dir = "/tmp/url_svmlight/"
 svm_files = dir(base_dir, pattern = "*.svm")
 
 # Loop through the files and create a list of objects
