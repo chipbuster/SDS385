@@ -9,7 +9,7 @@
 #include<cstdint>
 
 // For PredictMat and Responsevec
-#include "eigenMatrixTypes.h"
+#include "eigenMatrixTypes.hpp"
 
 using namespace std;
 

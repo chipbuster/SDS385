@@ -4,7 +4,6 @@ import csv
 from copy import copy
 import random
 import math
-import pdb
 
 import numpy as np
 import scipy as sp
@@ -16,7 +15,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__),'common'))
 import logistic_common as lc
 import data_common as dc
 import plot_common as pc
-from backtrack import backtracking_search
 
 class Samples:
     """A class to store and select samples from a data frame.
@@ -45,6 +43,7 @@ class Samples:
 
         assert np.shape(m)[1] == 1,\
             "y is not a column vector (column count is not 1)"
+
 
         self.predictors = X
         self.responses = y
@@ -118,46 +117,25 @@ def calc_llh_point_contribution(B, x, y, m):
 
     return -np.asscalar(y * math.log(w)  + (m - y) * math.log(1 - w) )
 
-def minibatch_train(samplePoints, guess, obj_func):
-    """Train a minibatch to determine the step size.
+def robbins_munro_stepsize(t):
+    """
+       Calculate the stepsize for Robbins-Munro step sizes
 
-    samplePoints     -- a Samples object to draw points from
-    guess: (cvector) -- the current estimate for B
+       t: (scalar) -- number of steps taken so far
     """
 
-    nSamples = 569      #Number of samples to draw
-    grad = np.zeros(np.shape(guess))
+    C = 0.3
+    a = 0.8
+    t0 = 1
 
-    # Grab some samples from samplePoints
-    samples = []
-    #TODO: make samples bind into matrix-vector instead of list
+    p2 = math.pow( t + t0 , -a )
+    return C * p2
 
-    for j in range(nSamples):
-        samples.append(samplePoints.get_sample())
-
-    #Create a function that calculates the local mean gradient
-
-    #TODO: call lc_functions here instead of homebrew functinos
-
-    #Create a likelihood function on this set only
-
-    pdb.set_trace()
-
-    # Find ideal step size for this batch
-    step = 1
-    searchDir = -local_gradient(guess)
-
-    step = backtracking_search(local_gradient, local_likelihood, guess, searchDir)
-
-    return step
 
 def solve(params, initial_guess, converge_step):
     """Calculates optimization problem with stochastic descent."""
 
     (X,y,m) = params
-    (N,P) = np.shape(X)
-
-    print(N)
 
     llh_func = lc.gen_likelihood_function(X,y,m) #Function to calculate likelihood
 
@@ -178,11 +156,7 @@ def solve(params, initial_guess, converge_step):
         (xSamp, ySamp, mSamp) = samplePoints.get_sample()
 
         searchDir = calc_sgd_step(guess, xSamp, ySamp, mSamp)
-
-        # Recalibrate step size every once in a while
-        if iterct % 500 == 0:
-            step = minibatch_train(samplePoints, guess, llh_func)
-            print("STEP SIZE SELECTED: " + str(step))
+        step = robbins_munro_stepsize(iterct)
 
         guess = guess - searchDir * step
 
@@ -190,6 +164,7 @@ def solve(params, initial_guess, converge_step):
 
         # Calculate current likelihood for convergence determination
         LLVal = llh_func(guess)
+        delta = abs( oldLLVal - LLVal )
 
         # Calculating the entire likelihood is expensive and destroys the speed
         # We can calculate the running average of individial contributions instead
@@ -201,13 +176,11 @@ def solve(params, initial_guess, converge_step):
         #LLAvg /= iterct
 
         #LLVal = LLAvg
-
-        delta = abs( oldLLVal - LLVal )
         likelihood_record.append(LLVal)
 
         # Update the user and break out if needed
         print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
-        if iterct > 100000:
+        if iterct > 10000:
             print("Reached 10000 iterations w/o convergence, aborting computation")
             break
 
@@ -228,7 +201,7 @@ def main(csvfile):
     numParams = np.shape(X)[1]
     initGuess = np.random.rand(numParams, 1)
 
-    convergeDiff = 1e-9 #Some default value...
+    convergeDiff = 1e-5  #Some default value...
 
     (solution, records) = solve( (X,y,m) , initGuess , convergeDiff )
 
