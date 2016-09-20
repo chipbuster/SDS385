@@ -3,6 +3,8 @@
 #include<sstream>
 #include<string>
 #include<memory>
+#include<Eigen/Sparse>
+#include<Eigen/Dense>
 
 using namespace std;
 
