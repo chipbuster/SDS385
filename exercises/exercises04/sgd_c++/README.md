@@ -34,4 +34,5 @@ Coming soon to a README near you!
 #### SVMLight Reader
 
 A "simple" C++ library to convert a list of SVMLight files into a set of
-Eigen matrices.
+Eigen matrices. This project is provided as a simple cpp/hpp, with the
+potential to become a library later.

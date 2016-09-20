@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
+#include <cmath>
 
 /* See read_svmlight.hpp for general explanations of these functions */
 
@@ -13,12 +14,42 @@ using namespace std;
 
 /* This is mostly support code for our classes*/
 
-Predictor::Predictor(long f, double v){
+//Construct a predictor from a pair. Very straightforward
+Predictor::Predictor(uint32_t f, float v){
   this->fieldnum = f;
   this->value = v;
 }
 
-Entry::Entry(bool o, PredictorList p){
+/* Construct a predictor from an SVMLight string of form field:val
+   Example: Predictor("2:0.75") should create a Predictor with
+   fieldnum = 2, value = 0.75. Strategy will be to copy the first
+   and second numbers into a separate char arrays, then call
+   atof/atoi on them to convert them to numbers.*/
+Predictor::Predictor(const char* s){
+  char longfield[16];
+  char valfield[32];
+
+  //Search for the colon in the input and record its index such that s[i] == ':'
+  size_t i;
+  for(i = 0; i < 16; i++){
+    if (s[i] == ':'){ break; }
+  }
+  assert(i <= 11 && "longfield was too long");
+  assert(i > 0 && "longfield was not found");
+
+  //Copy the long string and null-terminate it (strncpy) does not do this for us
+  strncpy(longfield, s, i);
+  longfield[i] = '\0';
+
+  //Copy the float string to valfield array
+  strcpy(valfield, (s + i + 1));
+
+  //Read strings into numbers and store
+  this->fieldnum = atoi(longfield);
+  this->value = atof(valfield);
+}
+
+Entry::Entry(double o, vector<Predictor> p){
   outcome = o;
   predictors = p;
 }
@@ -41,12 +72,13 @@ std::ostream &operator<<(std::ostream &os, Entry const &m){
    #########################################
 */
 
+/* Takes a single line of an input file and creates an Entry from it */
 Entry parseSVMLightLine(char* input){
-  vector<string> tokens;
-  vector<Predictor> preds;
+  vector<string> tokens; // Tokens are individual fields of the file, whitespace-separated
+  vector<Predictor> preds;  // One predictor generated per token
   char* saveptr;
 
-  // Split the string on whitespace and examine each token individually
+  // Split the string on whitespace and store each token to a vector
   char* p = strtok_r(input, " ", &saveptr);
   while(p){
     tokens.push_back(string(p));
@@ -56,24 +88,13 @@ Entry parseSVMLightLine(char* input){
   auto it = tokens.begin();
 
   // Examine the first entry of tokens--this should be the response value.
-  bool response = (*it == string("1")) ? true : false;
+  double response = (atof(it->c_str()) < 0) ? 0 : 1; //Convert to 0-1
   it++;
 
-  //Loop over remaining entries and process them
+  //Loop over remaining entries and turn them into Predictors
   while(it != tokens.end()){
-    char* tok = const_cast<char*>(it->c_str());
-
-    // Get first entry in token, it is the fieldnum
-    char* fst = strtok_r(tok,":",&saveptr);
-    long fieldnum = atoi(fst);
-
-    // Get second entry in token, it is the value of the field
-    char* snd = strtok_r(NULL,":",&saveptr);
-    double value = atof(snd);
-
-    assert(strtok_r(NULL, ";", &saveptr) == NULL && "STRTOK did not chomp entire entry!");
-
-    preds.push_back(Predictor(fieldnum,value));
+    const char* tok = it->c_str(); //Get the char* from the string for constructor
+    preds.push_back(Predictor(tok));
     it++;
   }
 
@@ -86,22 +107,21 @@ vector<Entry> readSVMLightFile(const char* filename){
   ifstream infile(filename);
   vector<Entry> entries;
 
-  cout << "Processing " << filename << endl;
-
+  // Repeatedly read a line from the file and process it
   while(getline(infile, line)){
 
     //Check if the line is commented or blank
     size_t first_nonspace_pos = line.find_first_not_of(" \t\n");
     if(first_nonspace_pos == string::npos){
-      cout << "[WARN]: Found a blank line in file " << filename << endl;
-      continue; //This is a blank line, apparently...
+      cerr << "[WARN]: Found a blank line in file " << filename << endl;
+      continue; //This is a blank line, we don't need to process it
     }
     if (line[first_nonspace_pos] == '#'){
-      cout << "[WARN]: Found a commented line in file  " << filename << endl;
-      continue; //This is a commented line
+      cerr << "[WARN]: Found a commented line in file  " << filename << endl;
+      continue; //This is a commented line, we shouldn't process it
     }
 
-    //Process this line
+    //If the line isn't commented or blank, process it!
     entries.push_back( parseSVMLightLine( const_cast<char*>(line.c_str()) ) );
   }
 
@@ -138,4 +158,41 @@ vector<Entry> readFileList(int numFiles, char** filenameList){
 
   return allEntries;
 
+}
+
+std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry> allEntries){
+  size_t N = allEntries.size();
+
+  //Iterate through the entry list, extracting all the entries
+  uint32_t maxFieldnum = 0; //Maximum column index in files, Empirical value: 3231961
+  size_t maxPredPerRow = 0; //Maximum number of predictors per row
+
+  // Do a fast pass over the entries to extract statistics (this is quick)
+  for(const Entry& ent : allEntries){
+    maxPredPerRow = std::max(ent.predictors.size(), maxPredPerRow);
+
+    for(const Predictor& p : ent.predictors){
+      maxFieldnum = std::max(maxFieldnum, p.fieldnum);
+    }
+  }
+
+  //Now we know N, P, and the max# elems per row. Allocate matrices.
+  ResponseVec response(N);
+  PredictMat preds(N, maxFieldnum);
+  preds.reserve(Eigen::VectorXi::Constant(N, maxPredPerRow));
+
+  // Loop over entries and store them into the sparse matrix
+  int rowIndex = 0;
+  for(const Entry& ent : allEntries){
+    const auto& pred = ent.predictors;
+    for(const Predictor& p : pred){
+      //Insert the entries one-by-one
+      preds.insert(rowIndex, p.fieldnum-1) = p.value;
+    }
+    rowIndex++;
+  }
+
+  preds.makeCompressed();
+
+  return std::make_pair(response, preds);
 }

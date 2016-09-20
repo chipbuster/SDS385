@@ -28,7 +28,9 @@ int main(int argc, char** argv){
 
   // Test directory reader
   char** files = argv + 1;
-  readFileList(argc - 1, files);
+  auto fl = readFileList(argc - 1, files);
+
+  genPredictors(fl);
 
   return 0;
 }

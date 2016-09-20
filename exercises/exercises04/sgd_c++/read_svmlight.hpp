@@ -5,40 +5,43 @@
 #include<memory>
 #include<Eigen/Sparse>
 #include<Eigen/Dense>
+#include<utility>
+#include<cstdint>
+
+// For PredictMat and Responsevec
+#include "eigenMatrixTypes.h"
 
 using namespace std;
 
 /* A predictor is a fieldnum/val pair which gives the value of a predictor
    in a particular field. In SVMLight this is represented as fieldnum:value */
 struct Predictor{
-  long fieldnum;
-  double value;
+  uint32_t fieldnum;
+  float value;
 
-  Predictor(long f, double v);
+  explicit Predictor(uint32_t f, float v);
+  explicit Predictor(const char* s);
 };
-
-typedef vector<Predictor> PredictorList;
 
 /* An entry is a single line of an SVMLight file--it represents a single data
    point. It is an outcome (+1/-1) and a set of predictors */
 struct Entry{
-  bool outcome;
-  PredictorList predictors;
+  double outcome;
+  vector<Predictor> predictors;
 
-  Entry(bool o, PredictorList p);
+  Entry(double o, vector<Predictor> p);
 };
 
-/* Generate a single Entry from a single line worth of text */
 Entry parseSVMLightLine ( char* lineValue);
 
-/* Read a single file and generate a vector of Entries */
 vector<Entry> readSVMLightFile(const char* filename );
 
-/* Read a series of files, concatenating them into a giant
-   vector at the end of the procedure. This is the main function
-   to call in this program. */
 vector<Entry> readFileList( int , char** );
+
+/* Turn a giant vector of Entries into a sparse matrix and a vector */
+std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry> allEntries);
 
 std::ostream& operator<<(std::ostream&, Predictor const&);
 
 std::ostream& operator<<(std::ostream&, Entry const&);
+
