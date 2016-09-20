@@ -8,7 +8,6 @@
 \usepackage{float,graphicx,tabularx}
 \usepackage[labelformat=simple]{subcaption}
 \usepackage{eqparbox}
-\usepackage{amsmath,amsthm,amsfonts,amssymb}
 \usepackage{bbm}
 \usepackage{leftidx}
 \usepackage{mathtools}
@@ -379,5 +378,16 @@ If we define $H_k = B_K^{-1}$, the BGFS update rule becomes
 \]
 
 where $\rho_k = 1 / y_k^Ts_k$.
+
+The code for BFGS can be found in \texttt{code/bfgs.py} in the top-level of this
+exercises directory. It is not listed here for brevity.
+
+The code uses a few iterations of steepest descent to burn in the Hessian (until
+the condition number is sufficiently small), then uses the computed inverse
+along with BGFS to do updates.
+
+This code converges incredibly quickly: within 7 iterations, it converges. The
+objective function values match with previous solutions, suggesting that this is
+not a spurious convergence.
 
 \end{document}
