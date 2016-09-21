@@ -3,9 +3,6 @@
 #include<cstdlib>
 #include<cassert>
 #include<iostream> //Mostly for debugging
-#include <sys/types.h>
-#include <dirent.h>
-#include <errno.h>
 #include <cmath>
 
 /* This code is the input-reading code. It ultimately converts a list of files
@@ -186,6 +183,7 @@ vector<Entry> readFileList(int numFiles, char** filenameList){
 #ifdef USE_OPENMP
   #pragma omp parallel for
   for(int j = 0; j < numFiles; j++){
+    cout << "Processing " << filenameList[j] << endl;
     vector<Entry> tmp = readSVMLightFile(filenameList[j]);
     #pragma omp critical
     fileEntries.push_back(tmp);
@@ -242,6 +240,8 @@ std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry> allEntries){
   int rowIndex = 0;
   for(const Entry& ent : allEntries){
     const auto& pred = ent.predictors;
+    response(rowIndex) = ent.outcome;
+
     for(const Predictor& p : pred){
       //Insert the entries one-by-one
       preds.insert(rowIndex, p.fieldnum-1) = p.value;

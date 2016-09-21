@@ -2,6 +2,7 @@
 
 #include<iostream>
 #include<cstring>
+#include<cassert>
 
 //Use this file by compiling and then running in debugger
 //Yes I know it's shitty :(
@@ -30,7 +31,16 @@ int main(int argc, char** argv){
   char** files = argv + 1;
   auto fl = readFileList(argc - 1, files);
 
-  genPredictors(fl);
+  auto out = genPredictors(fl);
+
+  auto vec = out.first;
+  auto mat = out.second;
+
+  //Sanity checks
+  assert(vec.rows() == mat.rows());
+
+  cout << "Your data had " << mat.rows() << " entries with " << mat.cols() << " predictors" << endl;
+  cout << "The predictors were " << vec.mean() * 100 << " percent positive (=1)" << endl;
 
   return 0;
 }

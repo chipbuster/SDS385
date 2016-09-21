@@ -1,4 +1,6 @@
 // you need to also include Eigen/Sparse and Eigen/Dense when using this file
+#ifndef USERTYPES_H
+#define USERTYPES_H
 
 #ifdef USE_DOUBLES
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor, int> PredictMat;
@@ -10,4 +12,7 @@ typedef Eigen::SparseMatrix<float, Eigen::RowMajor, int> PredictMat;
 typedef Eigen::VectorXf ResponseVec;
 typedef Eigen::VectorXf BetaVec;
 typedef float FLOATING;
+#endif
+
+
 #endif
