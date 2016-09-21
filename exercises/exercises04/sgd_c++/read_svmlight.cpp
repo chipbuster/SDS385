@@ -102,26 +102,47 @@ std::ostream &operator<<(std::ostream &os, Entry const &m){
 
 /* Takes a single line of an input file and creates an Entry from it */
 Entry parseSVMLightLine(char* input){
-  vector<string> tokens; // Tokens are individual fields of the file, whitespace-separated
+  vector<char*> tokens; // Tokens are individual fields of the file, whitespace-separated
   vector<Predictor> preds;  // One predictor generated per token
-  char* saveptr;
 
   // Split the string on whitespace and store each token to a vector
+  /* char* saveptr;
   char* p = strtok_r(input, " ", &saveptr);
   while(p){
     tokens.push_back(string(p));
     p = strtok_r(NULL, " ", &saveptr);
+    }
+  */
+
+  //Manually tokenize the string. If we hit a nullchar at any point,
+  //the string has ended and we break out.
+  char* tok_track = input;
+  bool in_tok = false; //Was the previous character a space?
+
+  for(tok_track = input; *tok_track != '\0'; tok_track++){
+    // If end-of-string found, break out of loop
+
+    if(*tok_track != ' ' && in_tok == false){
+      //This is the first character of a new token. Add it to the vector
+      tokens.push_back(tok_track);
+      in_tok = true;
+    }
+
+    if(*tok_track == ' ' && in_tok == true){
+      //This token has ended. Mark with a nullchar
+      in_tok = false;
+      *tok_track = '\0';
+    }
   }
 
   auto it = tokens.begin();
-
   // Examine the first entry of tokens--this should be the response value.
-  FLOATING response = (atof(it->c_str()) < 0) ? 0 : 1; //Convert to 0-1
+  FLOATING response = (atof(*it) < 0) ? 0 : 1; //Convert to 0-1
   it++;
 
   //Loop over remaining entries and turn them into Predictors
   while(it != tokens.end()){
-    const char* tok = it->c_str(); //Get the char* from the string for constructor
+    const char* tok = *it; //Get the char* from the string for constructor
     preds.push_back(Predictor(tok));
     it++;
   }

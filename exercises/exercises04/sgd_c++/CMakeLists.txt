@@ -45,3 +45,6 @@ include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
 include_directories(${SGD_SOURCE_DIR}/include)
 
 add_executable(testreader read_svmlight.cpp test_funcs.cpp)
+set_property(TARGET testreader PROPERTY CXX_STANDARD 11)
+
+
