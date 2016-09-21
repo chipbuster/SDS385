@@ -150,7 +150,7 @@ def solve(params, initial_guess, converge_step):
 
     likelihood_record = []
 
-    masterSS = 0.01  #the master stepsize for Adagrad, taken from http://seed.ucsd.edu/mediawiki/images/6/6a/Adagrad.pdf
+    masterSS = 1  #the master stepsize for Adagrad, taken from http://seed.ucsd.edu/mediawiki/images/6/6a/Adagrad.pdf
     ff = 1e-8        #a fudge factor for numerical stability
     histGrad = 0     #historical gradient
     w = np.random.rand(P,1) #Random initial weights
@@ -167,8 +167,7 @@ def solve(params, initial_guess, converge_step):
 
         # Update weights
         q = 0.1
-        w += q * np.square(pointGrad) + (1-q) * w
-        print(w)
+        w += np.square(pointGrad)
 
         iterct += 1
 
@@ -209,7 +208,7 @@ def main(csvfile):
     numParams = np.shape(X)[1]
     initGuess = np.random.rand(numParams, 1)
 
-    convergeDiff = 1e-9  #Some default value...
+    convergeDiff = 1e-11  #Some default value...
 
     (solution, records) = solve( (X,y,m) , initGuess , convergeDiff )
 
