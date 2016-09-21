@@ -17,7 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__),'common'))
 import logistic_common as lc
 import data_common as dc
 import plot_common as pc
-from backtrack import backtracking_search
+from searchmethod import grid_search
 
 class Samples:
     """A class to store and select samples from a data frame.
@@ -126,7 +126,7 @@ def minibatch_train(samplePoints, guess, obj_func, grad_func):
     guess: (cvector) -- the current estimate for B
     """
 
-    nSamples = 569      #Number of samples to draw
+    nSamples = 50      #Number of samples to draw
     grad = np.zeros(np.shape(guess))
 
     # Grab some samples from samplePoints
@@ -156,12 +156,12 @@ def minibatch_train(samplePoints, guess, obj_func, grad_func):
 
     # Find ideal step size for this batch
     searchDir = -local_gradient_raw(guess)
-    step = backtracking_search(local_gradient_raw, local_likelihood_raw, guess, searchDir)
+    step = grid_search(local_gradient, local_likelihood, guess, searchDir)
 
     newSearchDir = -grad_func(guess)
-    mainstep = backtracking_search(grad_func,obj_func, guess, newSearchDir)
+    mainstep = grid_search(grad_func,obj_func, guess, newSearchDir)
 
-    print("Ministep is " + str(step) + " and bigstep is  " + str(mainstep))
+#    print("Ministep is " + str(step) + " and bigstep is  " + str(mainstep))
 
 #    print(np.array(searchDir) / np.array(newSearchDir))
 #    print("")
@@ -226,7 +226,7 @@ def solve(params, initial_guess, converge_step):
         likelihood_record.append(LLVal)
 
         # Update the user and break out if needed
-        # print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
+        print("Iter: " + str(iterct) + ", objective is " + str(LLVal))
         if iterct > 10000:
             print("Reached 100000 iterations w/o convergence, aborting computation")
             break

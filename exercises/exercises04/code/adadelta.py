@@ -117,21 +117,6 @@ def calc_llh_point_contribution(B, x, y, m):
 
     return -np.asscalar(y * math.log(w)  + (m - y) * math.log(1 - w) )
 
-def robbins_munro_stepsize(t):
-    """
-       Calculate the stepsize for Robbins-Munro step sizes
-
-       t: (scalar) -- number of steps taken so far
-    """
-
-    C = 0.3
-    a = 0.8
-    t0 = 1
-
-    p2 = math.pow( t + t0 , -a )
-    return C * p2
-
-
 def solve(params, initial_guess, converge_step):
     """Calculates optimization problem with stochastic descent."""
 

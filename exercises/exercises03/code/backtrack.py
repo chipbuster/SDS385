@@ -20,4 +20,7 @@ def backtracking_search(grad_func, obj_func, guess, searchDir):
 
         step *= ratio
 
+        if step < 1e-7:
+            return 1e-7
+
     return step
