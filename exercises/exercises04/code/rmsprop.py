@@ -167,7 +167,7 @@ def solve(params, initial_guess, converge_step):
 
         # Update weights
         q = 0.1
-        w += q * np.square(pointGrad) + (1-q) * w
+        w = q * np.square(pointGrad) + (1-q) * w
         print(w)
 
         iterct += 1
