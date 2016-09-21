@@ -7,17 +7,21 @@ Okay, not really. But it *is* intended to be a speedy stochastic gradient descen
 
 The assignment statement can be found [here](https://github.com/jgscott/SDS385/blob/master/exercises/exercises04.md).
 
+**IF YOU SEE A TYPE YOU DON'T UNDERSTAND, CHECK TO SEE IF IT IS IN `usertypes.h` FIRST!**
+
 ## Prerequisites
 
 In order to build and run this, you must have the following software:
 
-    * Unix system (sorry Windows users)
     * C++ compiler
     * Eigen3
     * CMake (version >= 3.2)
-    * Boost (?)
+    
+Note that this build is only tested on Linux and OSX--it may be possible
+to use the Visual Studio generators on Windows, but it is completely
+untested.
 
-You can get these on OSX using [Homebrew](http://brew.sh/) by running
+You can get the prerequisites on OSX using [Homebrew](http://brew.sh/) by running
 
 ```
 brew install eigen cmake
@@ -31,8 +35,13 @@ Coming soon to a README near you!
 
 ## Project Parts
 
+This entire project assumes (as a matter of expedience) that m = 1 in all
+cases--that is, we only have two possible outcomes.
+
 #### SVMLight Reader
 
 A "simple" C++ library to convert a list of SVMLight files into a set of
 Eigen matrices. This project is provided as a simple cpp/hpp, with the
 potential to become a library later.
+
+#### S

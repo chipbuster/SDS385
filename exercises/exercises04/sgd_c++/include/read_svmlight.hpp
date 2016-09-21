@@ -1,3 +1,6 @@
+#ifndef READ_SVMLIGHT_H
+#define READ_SVMLIGHT_H
+
 #include<fstream>
 #include<vector>
 #include<sstream>
@@ -9,7 +12,7 @@
 #include<cstdint>
 
 // For PredictMat and Responsevec
-#include "eigenMatrixTypes.hpp"
+#include "usertypes.hpp"
 
 using namespace std;
 
@@ -17,19 +20,19 @@ using namespace std;
    in a particular field. In SVMLight this is represented as fieldnum:value */
 struct Predictor{
   uint32_t fieldnum;
-  float value;
+  FLOATING value;
 
-  explicit Predictor(uint32_t f, float v);
+  explicit Predictor(uint32_t f, FLOATING v);
   explicit Predictor(const char* s);
 };
 
 /* An entry is a single line of an SVMLight file--it represents a single data
    point. It is an outcome (+1/-1) and a set of predictors */
 struct Entry{
-  double outcome;
+  FLOATING outcome;
   vector<Predictor> predictors;
 
-  Entry(double o, vector<Predictor> p);
+  Entry(FLOATING o, vector<Predictor> p);
 };
 
 Entry parseSVMLightLine ( char* lineValue);
@@ -45,3 +48,4 @@ std::ostream& operator<<(std::ostream&, Predictor const&);
 
 std::ostream& operator<<(std::ostream&, Entry const&);
 
+#endif
