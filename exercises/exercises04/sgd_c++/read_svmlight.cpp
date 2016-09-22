@@ -50,28 +50,21 @@ Predictor::Predictor(uint32_t f, FLOATING v){
   this->value = v;
 }
 
-Predictor::Predictor(const char* s){
-  char longfield[16];
-  char valfield[32];
+Predictor::Predictor(char* s){
 
-  //Search for the colon in the input and record its index such that s[i] == ':'
+  //Search for the colon in the input and null it, resulting in two strings
   size_t i;
   for(i = 0; i < 16; i++){
-    if (s[i] == ':'){ break; }
+    if (s[i] == ':'){ s[i] = '\0'; break; }
   }
   assert(i <= 11 && "longfield was too long");
   assert(i > 0 && "longfield was not found");
 
   //Copy the long string and null-terminate it (strncpy) does not do this for us
-  strncpy(longfield, s, i);
-  longfield[i] = '\0';
-
-  //Copy the float string to valfield array
-  strcpy(valfield, (s + i + 1));
 
   //Read strings into numbers and store
-  this->fieldnum = atoi(longfield);
-  this->value = atof(valfield);
+  this->fieldnum = atoi(s);
+  this->value = atof(s + i + 1);
 }
 
 Entry::Entry(FLOATING o, vector<Predictor> p){
@@ -139,7 +132,7 @@ Entry parseSVMLightLine(char* input){
 
   //Loop over remaining entries and turn them into Predictors
   while(it != tokens.end()){
-    const char* tok = *it; //Get the char* from the string for constructor
+    char* tok = *it; //Get the char* from the string for constructor
     preds.push_back(Predictor(tok));
     it++;
   }

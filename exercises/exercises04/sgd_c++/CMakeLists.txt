@@ -4,14 +4,18 @@ project(SGD)
 ####### Add custom module search files (This one for homebrew cmake) for OSX
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/local/share/cmake/Modules/")
 
-# Find required libraries
-find_package(Eigen3 REQUIRED)
-find_package(OpenMP)
+#############################
+#### Options for program ####
+#############################
 
-#### Options for program
 # Use double for floating point?
 option(USE_DOUBLES "Use 64-bit floating point. More accurate, but uses over 20GB of RAM" OFF)
 
+##################################
+#### Find required libraries #####
+##################################
+find_package(Eigen3 REQUIRED)
+find_package(OpenMP)
 
 # Add openmp flags if the compiler supports it
 if(OPENMP_FOUND)
@@ -44,7 +48,5 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS}\
 include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
 include_directories(${SGD_SOURCE_DIR}/include)
 
-add_executable(testreader read_svmlight.cpp test_funcs.cpp)
-set_property(TARGET testreader PROPERTY CXX_STANDARD 11)
-
-
+add_executable(summarize_svmlight read_svmlight.cpp test_funcs.cpp)
+set_property(TARGET summarize_svmlight PROPERTY CXX_STANDARD 11)

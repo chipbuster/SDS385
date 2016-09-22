@@ -23,7 +23,7 @@ struct Predictor{
   FLOATING value;
 
   explicit Predictor(uint32_t f, FLOATING v);
-  explicit Predictor(const char* s);
+  explicit Predictor(char* s);
 };
 
 /* An entry is a single line of an SVMLight file--it represents a single data
