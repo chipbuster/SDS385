@@ -39,10 +39,10 @@ Entry parseSVMLightLine ( char* lineValue);
 
 vector<Entry> readSVMLightFile(const char* filename );
 
-vector<Entry> readFileList( int , char** );
+vector<Entry> readFileList( vector<string> filenameList );
 
 /* Turn a giant vector of Entries into a sparse matrix and a vector */
-std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry> allEntries);
+std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry>& allEntries);
 
 std::ostream& operator<<(std::ostream&, Predictor const&);
 

@@ -8,7 +8,6 @@
 
 #include "usertypes.hpp"
 
-FLOATING calc_weight(PredictMat& pred, int sampleNum, BetaVec& estimate);
-FLOATING calc_sgd_likelihood(PredictMat& pred, ResponseVec& response, int sampleNum, BetaVec& estimate);
-void calc_sgd_gradient(PredictMat& pred, ResponseVec& response, int sampleNum, BetaVec& estimate, BetaVec& gradient);
+FLOATING calc_sgd_likelihood(const BetaVec& pred, FLOATING response , const BetaVec& estimate);
+void calc_sgd_gradient(const BetaVec& pred, FLOATING response, const BetaVec& estimate, BetaVec& gradient);
 #endif

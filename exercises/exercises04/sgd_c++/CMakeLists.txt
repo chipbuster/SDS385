@@ -50,3 +50,10 @@ include_directories(${SGD_SOURCE_DIR}/include)
 
 add_executable(summarize_svmlight read_svmlight.cpp test_funcs.cpp)
 set_property(TARGET summarize_svmlight PROPERTY CXX_STANDARD 11)
+
+add_executable(runsgd read_svmlight.cpp sgd_utility.cpp sgd.cpp)
+set_property(TARGET runsgd PROPERTY CXX_STANDARD 11)
+
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+  target_link_libraries(runsgd profiler)
+endif()

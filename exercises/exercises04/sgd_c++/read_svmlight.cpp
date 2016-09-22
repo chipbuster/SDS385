@@ -167,23 +167,24 @@ vector<Entry> readSVMLightFile(const char* filename){
   return entries;
 }
 
-vector<Entry> readFileList(int numFiles, char** filenameList){
+vector<Entry> readFileList(vector<string> filenameList){
 
   vector<vector<Entry> > fileEntries;
   vector<Entry> allEntries;
+  size_t numFiles = filenameList.size();
 
   // Read the entries from each file and place in a record
 #ifdef USE_OPENMP
   #pragma omp parallel for
   for(int j = 0; j < numFiles; j++){
     cout << "Processing " << filenameList[j] << endl;
-    vector<Entry> tmp = readSVMLightFile(filenameList[j]);
+    vector<Entry> tmp = readSVMLightFile(filenameList[j].c_str());
     #pragma omp critical
     fileEntries.push_back(tmp);
   }
 #else
   for(int j = 0; j < numFiles; j++){
-    vector<Entry> tmp = readSVMLightFile(filenameList[j]);
+    vector<Entry> tmp = readSVMLightFile(filenameList[j].c_str();
     fileEntries.push_back(tmp);
   }
 #endif
@@ -208,7 +209,7 @@ vector<Entry> readFileList(int numFiles, char** filenameList){
 
 }
 
-std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry> allEntries){
+std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry>& allEntries){
   size_t N = allEntries.size();
 
   //Iterate through the entry list, extracting all the entries

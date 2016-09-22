@@ -13,8 +13,11 @@ int main(int argc, char** argv){
     return -1;
   }
 
-  char** files = argv + 1;
-  vector<Entry> results = readFileList(argc - 1, files);
+  vector<string> fnlist;
+  for(int j =1; j <= argc; j++){
+    fnlist.push_back(string(argv[j]));
+  }
+  vector<Entry> results = readFileList(fnlist);
 
   std::pair<ResponseVec, PredictMat> out = genPredictors(results);
 

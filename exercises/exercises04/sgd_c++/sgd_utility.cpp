@@ -1,39 +1,47 @@
 #include "sgd_utility.hpp"
+#include<ctime>
+#include<iostream>
 
-FLOATING calc_weight(PredictMat& pred, int i, BetaVec& estimate){
+using namespace std;
+
+static inline FLOATING calc_weight(const BetaVec& pred,const BetaVec& estimate){
   /* Calculate w_i for the ith row of the predictor matrix, given a
      current Beta estimate */
 
-  FLOATING exponent = pred.row(i).dot(estimate);
+  FLOATING exponent = estimate.dot(pred);
   FLOATING w = 1.0 / (1.0 + exp(exponent));
+
   return w;
 }
 
-
-
-FLOATING calc_sgd_likelihood(PredictMat& pred, ResponseVec& response, int sampleNum, BetaVec& estimate){
-
+FLOATING calc_sgd_likelihood(const BetaVec& pred, FLOATING response , const BetaVec& estimate){
   constexpr FLOATING m = 1.0;
-            FLOATING w = calc_weight(pred, sampleNum, estimate);
-            FLOATING y = response(sampleNum);
+  FLOATING w = calc_weight(pred, estimate);
+  FLOATING y = response;
 
   //TODO: Update this for L2 regularization term
   FLOATING contrib = -(y * log(w) + (m - y) * (1 - log(w)));
   return contrib;
 }
 
-void calc_sgd_gradient(PredictMat& pred, ResponseVec& response, int sampleNum, BetaVec& estimate, BetaVec& gradient){
-  /* Calculates the gradient contribution of a single point. Takes in the whole
-     matrix and response, selects the relevant elements, and performs calc.*/
+void calc_sgd_gradient(const BetaVec& pred, FLOATING response, const BetaVec& estimate, BetaVec& gradient){
+  static double weight_time = 0.0;
+  static double grad_time = 0.0;
+  static double extract_time = 0.0;
+  clock_t t;
 
   constexpr FLOATING m = 1.0;
-  FLOATING w = calc_weight(pred, sampleNum, estimate);
-  FLOATING y = response(sampleNum);
+
+  FLOATING w = calc_weight(pred, estimate);
+  FLOATING y = response;
 
   // gradient = (m * w - y) * x
   // TODO: Update this for L2 regularization term
 
   FLOATING coefficient = m * w - y;
 
-  gradient = coefficient * BetaVec(pred.row(sampleNum));
+  t = clock();
+  gradient = coefficient * pred;
+  t = clock() - t;
+  weight_time += double(t) / CLOCKS_PER_SEC;
 }
