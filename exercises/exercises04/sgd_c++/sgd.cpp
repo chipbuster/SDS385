@@ -15,7 +15,7 @@
 
 /* Runs a single iteration of SGD through the entire datase (picking each
  point exactly once). Does not return a value, guess is modified in-place */
-void sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
+void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
                    FLOATING regCoeff = 1e-4,
                    FLOATING masterStep = 1e-1){
   /* Args:
@@ -93,6 +93,6 @@ int main(int argc,char** argv){
   PredictMat predictors = out.second;
 
   // Do SGD
-  BetaVec guess = DenseVec::Constant(predictors.cols(), 0.1).sparseView();
+  BetaVec guess = DenseVec::Constant(predictors.cols(), 0.0).sparseView();
   sgd_iteration(predictors, responses, guess);
 }
