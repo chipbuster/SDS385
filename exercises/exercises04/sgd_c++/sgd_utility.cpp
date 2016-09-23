@@ -1,6 +1,7 @@
 #include "sgd_utility.hpp"
 #include<ctime>
 #include<iostream>
+#include<typeinfo>
 
 using namespace std;
 
@@ -8,7 +9,7 @@ static inline FLOATING calc_weight(const BetaVec& pred,const BetaVec& estimate){
   /* Calculate w_i for the ith row of the predictor matrix, given a
      current Beta estimate */
 
-  FLOATING exponent = estimate.dot(pred);
+  FLOATING exponent = estimate.cwiseProduct(pred).sum();
   FLOATING w = 1.0 / (1.0 + exp(exponent));
 
   return w;

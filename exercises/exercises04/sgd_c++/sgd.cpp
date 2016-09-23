@@ -6,18 +6,19 @@
 
 #include "usertypes.hpp"
 #include "read_svmlight.hpp"
-#include "sgd_utility.hpp"
 #include "tinydir.h"
 
 #ifndef NDEBUG
 #include <gperftools/profiler.h>
 #endif
 
+using namespace std;
+
 /* Runs a single iteration of SGD through the entire datase (picking each
  point exactly once). Does not return a value, guess is modified in-place */
-void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
+void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& sparseGuess,
                    FLOATING regCoeff = 1e-4,
-                   FLOATING masterStep = 1e-1){
+                   FLOATING masterStepSize = 1e-1){
   /* Args:
 
      pred : the sparse matrix of predictors
@@ -27,30 +28,44 @@ void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
      masterStep: the master step size for Adagrad */
 
   constexpr FLOATING adagradEpsilon = 1e-7;
+  constexpr FLOATING m = 1.0;
 
   int nPred = pred.cols();
-  BetaVec gradient = BetaVec(nPred);
+  int nSamp = pred.rows();
   DenseVec agWeights = DenseVec::Random(nPred); //Adagrad weights
-  DenseVec epsVec = DenseVec::Constant(nPred, adagradEpsilon);
+  DenseVec guess = DenseVec(sparseGuess);
 
   #ifndef NDEBUG
   ProfilerStart("gperftools.out");
   #endif
 
-  for(int i = 0; i < 9000 /*pred.rows()*/; i++){
+  for(int i = 0; i < pred.rows(); i++){
     //Calculate the gradient
-    BetaVec predSamp = pred.row(i).eval();
-    FLOATING responseSamp = r(i);
+    BetaVec predSamp = pred.row(i);
 
-    calc_sgd_gradient(predSamp, responseSamp, guess, gradient);
+    FLOATING psi0 = predSamp.dot(guess);
+    FLOATING epsi = exp(psi0);
+    FLOATING yhat = m / (1.0 + epsi);
 
-    // Update the guess by the AdaGrad rules
-    // guess = guess + (agWeights + epsVec).cwiseInverse().cwiseProduct(gradient);
+    FLOATING delta = r(i) - yhat;
 
-    // Update the AdaGrad weights
-    // agWeights += gradient.cwiseProduct(gradient);
+    for(BetaVec::InnerIterator it(predSamp); it; ++it){
+      int k = it.index();
+      int j = k;
 
-    cout << "Index is " << i << endl;
+      // Calculate gradient for this element
+      FLOATING elem_gradient = -delta * it.value();
+
+      // Update weights for Adagrad
+      agWeights(j) += elem_gradient * elem_gradient;
+      FLOATING h = sqrt(agWeights(i) + adagradEpsilon);
+
+      // Scale element
+      FLOATING scaleFactor = masterStepSize / h;
+      guess(j) -= scaleFactor * elem_gradient;
+    }
+
+    cout << "Index is " << i << " and nnz is " << guess.nonZeros() <<  endl;
   }
 
   #ifndef NDEBUG

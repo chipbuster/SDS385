@@ -77,7 +77,7 @@ SEXP sparsesgd_logit(MapMatd X, VectorXd Y, VectorXd M, double eta, int npass, V
       x = X.innerVector(i);
       psi0 = alpha + x.dot(beta);
       epsi = exp(psi0);
-      yhat = M[i]*epsi/(1.0+epsi);
+      yhat = M[i]*epsi/(1.0+epsi); // Is this correct?
 
       // Update nll average
       nll_avg = (1.0-discount)*nll_avg + discount*(M[i]*log(1+epsi) - Y[i]*psi0);
@@ -87,10 +87,6 @@ SEXP sparsesgd_logit(MapMatd X, VectorXd Y, VectorXd M, double eta, int npass, V
       delta = Y[i] - yhat;
       g0squared += delta*delta;
       alpha += (eta/sqrt(g0squared))*delta;
-
-      // if(pass == npass-1) {
-      //   loglik += Y[i]*log(yhat) - yhat;
-      // }
 
      // Iterate over the active features for this instance
      for (SparseVector<double>::InnerIterator it(x); it; ++it) {
@@ -136,7 +132,7 @@ SEXP sparsesgd_logit(MapMatd X, VectorXd Y, VectorXd M, double eta, int npass, V
     gammatilde = skip*eta/h;
     beta(j) = sgn(beta(j))*fmax(0.0, fabs(beta(j)) - gammatilde*weight*lambda);
   }
- 
+
 
   return List::create(Named("alpha") = alpha,
                       Named("beta") = beta,
