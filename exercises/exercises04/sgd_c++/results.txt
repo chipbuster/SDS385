@@ -1,0 +1,131 @@
+P2 results: sparse dot product in code, 20k iters
+Time taken for 20k iters: 1.73579s
+Time taken for 20k iters: 2.05514s
+Time taken for 20k iters: 2.05623s
+Time taken for 20k iters: 2.05519s
+Time taken for 20k iters: 2.10715s
+Time taken for 20k iters: 2.05425s
+Time taken for 20k iters: 2.05388s
+Time taken for 20k iters: 2.05873s
+Time taken for 20k iters: 2.07233s
+Time taken for 20k iters: 2.05659s
+Time taken for 20k iters: 2.0778s
+Time taken for 20k iters: 2.05331s
+Time taken for 20k iters: 2.05515s
+Time taken for 20k iters: 2.05457s
+Time taken for 20k iters: 2.05539s
+Time taken for 20k iters: 2.05536s
+Time taken for 20k iters: 2.05442s
+Time taken for 20k iters: 2.05708s
+Time taken for 20k iters: 2.0792s
+Time taken for 20k iters: 2.05578s
+
+P4 results: sparse dot product in inline function
+Time taken for 20k iters: 1.71677s
+Time taken for 20k iters: 2.0444s
+Time taken for 20k iters: 2.04614s
+Time taken for 20k iters: 2.04444s
+Time taken for 20k iters: 2.04728s
+Time taken for 20k iters: 2.04245s
+Time taken for 20k iters: 2.04765s
+Time taken for 20k iters: 2.04684s
+Time taken for 20k iters: 2.05309s
+Time taken for 20k iters: 2.04627s
+Time taken for 20k iters: 2.0451s
+Time taken for 20k iters: 2.04351s
+Time taken for 20k iters: 2.04911s
+Time taken for 20k iters: 2.04515s
+Time taken for 20k iters: 2.04679s
+Time taken for 20k iters: 2.04513s
+Time taken for 20k iters: 2.10254s
+Time taken for 20k iters: 2.04625s
+Time taken for 20k iters: 2.04612s
+Time taken for 20k iters: 2.04622s
+
+P1 results: sparse dot dense in code
+Time taken for 20k iters: 0.074136s
+Time taken for 20k iters: 0.068755s
+Time taken for 20k iters: 0.069255s
+Time taken for 20k iters: 0.069633s
+Time taken for 20k iters: 0.068831s
+Time taken for 20k iters: 0.068887s
+Time taken for 20k iters: 0.068889s
+Time taken for 20k iters: 0.06892s
+Time taken for 20k iters: 0.068866s
+Time taken for 20k iters: 0.068995s
+Time taken for 20k iters: 0.06884s
+Time taken for 20k iters: 0.069159s
+Time taken for 20k iters: 0.069561s
+Time taken for 20k iters: 0.069622s
+Time taken for 20k iters: 0.069692s
+Time taken for 20k iters: 0.069665s
+Time taken for 20k iters: 0.069629s
+Time taken for 20k iters: 0.069719s
+Time taken for 20k iters: 0.069444s
+Time taken for 20k iters: 0.070303s
+
+P5 results: sparse dot sparse in code using valueRef():
+Time taken for 20k iters: 0.077666s
+Time taken for 20k iters: 0.069443s
+Time taken for 20k iters: 0.066736s
+Time taken for 20k iters: 0.065425s
+Time taken for 20k iters: 0.064119s
+Time taken for 20k iters: 0.064786s
+Time taken for 20k iters: 0.064565s
+Time taken for 20k iters: 0.066519s
+Time taken for 20k iters: 0.065155s
+Time taken for 20k iters: 0.064671s
+Time taken for 20k iters: 0.06468s
+Time taken for 20k iters: 0.064956s
+Time taken for 20k iters: 0.064934s
+Time taken for 20k iters: 0.064601s
+Time taken for 20k iters: 0.065064s
+Time taken for 20k iters: 0.064707s
+Time taken for 20k iters: 0.080096s
+Time taken for 20k iters: 0.068875s
+Time taken for 20k iters: 0.064355s
+Time taken for 20k iters: 0.064358s
+
+
+===========================================
+For all iterations, loop timer:
+
+Using sparse guess and valueRef():
+Time taken for core iters: 9.58434s
+Time taken for core iters: 6.72063s
+Time taken for core iters: 5.30838s
+Time taken for core iters: 4.59875s
+Time taken for core iters: 4.41622s
+Time taken for core iters: 4.26766s
+Time taken for core iters: 4.32985s
+Time taken for core iters: 4.32422s
+Time taken for core iters: 4.37103s
+Time taken for core iters: 4.31926s
+Time taken for core iters: 4.30437s
+Time taken for core iters: 4.29977s
+Time taken for core iters: 4.23532s
+Time taken for core iters: 4.24375s
+Time taken for core iters: 4.23164s
+Time taken for core iters: 4.24858s
+
+Using dense guess:
+Time taken for core iters: 7.77184s
+Time taken for core iters: 4.97702s
+Time taken for core iters: 5.03049s
+Time taken for core iters: 5.03146s
+Time taken for core iters: 4.93764s
+Time taken for core iters: 4.956s
+Time taken for core iters: 4.96603s
+Time taken for core iters: 4.94174s
+Time taken for core iters: 4.93133s
+Time taken for core iters: 5.00163s
+Time taken for core iters: 4.99273s
+Time taken for core iters: 4.97717s
+Time taken for core iters: 4.91719s
+Time taken for core iters: 4.97863s
+Time taken for core iters: 4.98419s
+Time taken for core iters: 5.06026s
+Time taken for core iters: 5.01013s
+Time taken for core iters: 5.06491s
+Time taken for core iters: 5.04825s
+Time taken for core iters: 5.07861s

@@ -3,6 +3,7 @@
 #include<utility>
 #include<iostream>
 #include<cstring>
+#include<ctime>
 
 #include "usertypes.hpp"
 #include "read_svmlight.hpp"
@@ -13,6 +14,9 @@
 #endif
 
 using namespace std;
+
+static inline FLOATING weight(BetaVec& guess, BetaVec& samp){ return samp.dot(guess);}
+static inline FLOATING weight(DenseVec& guess, BetaVec& samp){ return samp.dot(guess);}
 
 /* Runs a single iteration of SGD through the entire datase (picking each
  point exactly once). Does not return a value, guess is modified in-place */
@@ -35,15 +39,25 @@ void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& sparseGuess,
   DenseVec agWeights = DenseVec::Random(nPred); //Adagrad weights
   DenseVec guess = DenseVec(sparseGuess);
 
-  #ifndef NDEBUG
-  ProfilerStart("gperftools.out");
-  #endif
+  static double time1 = 0.0;
+  static double time2 = 0.0;
+  clock_t t;
 
+  for(int test = 0; test < 20; test++){
+    t = clock();
   for(int i = 0; i < pred.rows(); i++){
     //Calculate the gradient
     BetaVec predSamp = pred.row(i);
 
+    // P1: sparse dot dense, in code
     FLOATING psi0 = predSamp.dot(guess);
+    // P2: sparse dot sparse, in code
+    // FLOATING psi0 = predSamp.dot(sparseGuess);
+    // P3: sparse dot dense, in func
+    //FLOATING psi0 = weight(guess, predSamp);
+    // P4: sparse dot sparse, in code: /
+    //FLOATING psi0 = weight(sparseGuess,predSamp);
+
     FLOATING epsi = exp(psi0);
     FLOATING yhat = m / (1.0 + epsi);
 
@@ -62,16 +76,15 @@ void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& sparseGuess,
 
       // Scale element
       FLOATING scaleFactor = masterStepSize / h;
+
       guess(j) -= scaleFactor * elem_gradient;
+      //it.valueRef() -= scaleFactor * elem_gradient;
     }
 
-    cout << "Index is " << i << " and nnz is " << guess.nonZeros() <<  endl;
+    //   cout << "Index is " << i << " and nnz is " << guess.nonZeros() <<  endl;
   }
-
-  #ifndef NDEBUG
-  ProfilerStop();
-  #endif
-
+  cout << "Time taken for core iters: " << static_cast<double>(clock() - t)/CLOCKS_PER_SEC << "s" << endl;
+  }
 }
 
 int main(int argc,char** argv){
