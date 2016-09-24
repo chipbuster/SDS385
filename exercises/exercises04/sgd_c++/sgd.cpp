@@ -15,12 +15,9 @@
 
 using namespace std;
 
-static inline FLOATING weight(BetaVec& guess, BetaVec& samp){ return samp.dot(guess);}
-static inline FLOATING weight(DenseVec& guess, BetaVec& samp){ return samp.dot(guess);}
-
 /* Runs a single iteration of SGD through the entire datase (picking each
  point exactly once). Does not return a value, guess is modified in-place */
-void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& sparseGuess,
+DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
                    FLOATING regCoeff = 1e-4,
                    FLOATING masterStepSize = 1e-1){
   /* Args:
@@ -33,42 +30,52 @@ void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& sparseGuess,
 
   constexpr FLOATING adagradEpsilon = 1e-7;
   constexpr FLOATING m = 1.0;
+  constexpr FLOATING movingAverageRatio = 0.1;
+
+  clock_t t;
 
   int nPred = pred.cols();
   int nSamp = pred.rows();
-  DenseVec agWeights = DenseVec::Random(nPred); //Adagrad weights
-  DenseVec guess = DenseVec(sparseGuess);
 
-  static double time1 = 0.0;
-  static double time2 = 0.0;
-  clock_t t;
+  //Adagrad weights--the zeroeth element is for the intercept term, so all
+  //accesses for elements need to be offset by one.
+  DenseVec agWeights = DenseVec::Random(nPred);
+
+  //Tracker for the value of the objective function (here, nll_avg)
+  DenseVec objTracker = DenseVec::Zero(nPred);
+  FLOATING nllAvg = 0; //Negative log-likelihood averages
+  constexpr FLOATING nllWt = 0.1; //Term for weighting the NLL exponential decay
+
+  //Tracker for last-updated term
+  vector<int> lastUpdate = vector<int>(nPred);
 
   for(int test = 0; test < 20; test++){
     t = clock();
+
+  uint64_t iterNum = 0; //Iteration counter
   for(int i = 0; i < pred.rows(); i++){
-    //Calculate the gradient
+    //Calculate the values needed for the gradient
     BetaVec predSamp = pred.row(i);
+    FLOATING exponent = predSamp.dot(guess); cout << exponent << endl;
+    FLOATING w = 1.0 / (1.0 + exp(-exponent));
+    FLOATING y = r(i);
+    FLOATING logitDelta = y - m * w;
 
-    // P1: sparse dot dense, in code
-    FLOATING psi0 = predSamp.dot(guess);
-    // P2: sparse dot sparse, in code
-    // FLOATING psi0 = predSamp.dot(sparseGuess);
-    // P3: sparse dot dense, in func
-    //FLOATING psi0 = weight(guess, predSamp);
-    // P4: sparse dot sparse, in code: /
-    //FLOATING psi0 = weight(sparseGuess,predSamp);
-
-    FLOATING epsi = exp(psi0);
-    FLOATING yhat = m / (1.0 + epsi);
-
-    FLOATING delta = r(i) - yhat;
+    //Update tracking negative log likelihood estimate and append to estimate
+    FLOATING pointContribNLL = y * log(w) + (m-y) * log(1-w);
+    nllAvg = nllAvg * nllWt + (1 - nllAvg) * pointContribNLL;
+    objTracker(iterNum) = nllAvg;
 
     for(BetaVec::InnerIterator it(predSamp); it; ++it){
-      int k = it.index();
-      int j = k;
+      int j = it.index();
+
+      // Calculate the L2 penalty term for this element based on last-use time
+      FLOATING skip = iterNum - lastUpdate[j];
+      FLOATING l2Delta = regCoeff * skip;
+      lastUpdate[j] = iterNum;
 
       // Calculate gradient for this element
-      FLOATING elem_gradient = -delta * it.value();
+      FLOATING elem_gradient = -(l2Delta + logitDelta) * it.value();
 
       // Update weights for Adagrad
       agWeights(j) += elem_gradient * elem_gradient;
@@ -77,14 +84,14 @@ void sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& sparseGuess,
       // Scale element
       FLOATING scaleFactor = masterStepSize / h;
 
-      guess(j) -= scaleFactor * elem_gradient;
-      //it.valueRef() -= scaleFactor * elem_gradient;
+      it.valueRef() -= scaleFactor * elem_gradient;
     }
-
-    //   cout << "Index is " << i << " and nnz is " << guess.nonZeros() <<  endl;
   }
+  iterNum++;
   cout << "Time taken for core iters: " << static_cast<double>(clock() - t)/CLOCKS_PER_SEC << "s" << endl;
   }
+
+  return objTracker;
 }
 
 int main(int argc,char** argv){
@@ -122,5 +129,7 @@ int main(int argc,char** argv){
 
   // Do SGD
   BetaVec guess = DenseVec::Constant(predictors.cols(), 0.0).sparseView();
-  sgd_iteration(predictors, responses, guess);
+  DenseVec nll_trac = sgd_iteration(predictors, responses, guess);
+
+  cout << nll_trac << endl;
 }

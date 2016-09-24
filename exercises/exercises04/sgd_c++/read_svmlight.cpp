@@ -228,7 +228,7 @@ std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry>& allEntries){
   //Now we know N, P, and the max# elems per row. Allocate matrices.
   ResponseVec response(N);
   PredictMat preds(N, maxFieldnum);
-  preds.reserve(Eigen::VectorXi::Constant(N, maxPredPerRow));
+  preds.reserve(Eigen::VectorXi::Constant(N, maxPredPerRow + 1));
 
   // Loop over entries and store them into the sparse matrix
   int rowIndex = 0;
@@ -240,6 +240,7 @@ std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry>& allEntries){
       //Insert the entries one-by-one
       preds.insert(rowIndex, p.fieldnum-1) = p.value;
     }
+    preds.insert(rowIndex, maxPredPerRow) = 1.0; //Intercept term
     rowIndex++;
   }
 
