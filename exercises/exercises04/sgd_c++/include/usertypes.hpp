@@ -6,6 +6,7 @@
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor, int> PredictMat;
 typedef Eigen::VectorXd ResponseVec;
 typedef Eigen::VectorXd DenseVec;
+typedef Eigen::SparseVector<double> BetaVec;
 typedef double FLOATING;
 #else
 typedef Eigen::SparseMatrix<float, Eigen::RowMajor, int> PredictMat;
