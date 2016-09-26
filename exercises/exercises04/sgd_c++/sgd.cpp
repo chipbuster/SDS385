@@ -13,11 +13,47 @@
 #include <gperftools/profiler.h>
 #endif
 
+#define BEGIN_TIME() t = clock()
+#define END_TIME(var) t = clock() - t; var += (double)t / CLOCKS_PER_SEC
+
+//Using Carmack's magic, adapted for doubles
+#ifdef USE_DOUBLES
+static inline double invSqrt( const double& x )
+{
+  double y = x;
+  double xhalf = ( double )0.5 * y;
+  long long i = *( long long* )( &y );
+  i = 0x5fe6ec85e7de30daLL - ( i >> 1 );//LL suffix for (long long) type for GCC
+  y = *( double* )( &i );
+  y = y * ( ( double )1.5 - xhalf * y * y );
+  y = y * ( ( double )1.5 - xhalf * y * y ); //For better accuracy
+
+  return y;
+}
+#else
+float Q_rsqrt( float number )
+{
+	long i;
+	float x2, y;
+	constexpr float threehalfs = 1.5F;
+
+	x2 = number * 0.5F;
+	y  = number;
+	i  = * ( long * ) &y;                       // evil floating point bit level hacking
+	i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
+	y  = * ( float * ) &i;
+	y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
+  y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+
+	return y;
+}
+#endif
+
 using namespace std;
 
 /* Runs a single iteration of SGD through the entire datase (picking each
  point exactly once). Does not return a value, guess is modified in-place */
-DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
+DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
                    FLOATING regCoeff = 1e-4,
                    FLOATING masterStepSize = 1e-1){
   /* Args:
@@ -28,18 +64,23 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
      regCoeff : The L2 regularization coefficient
      masterStep: the master step size for Adagrad */
 
+  //Compile-time constants--baked into code
   constexpr FLOATING adagradEpsilon = 1e-7;
   constexpr FLOATING m = 1.0;
   constexpr FLOATING movingAverageRatio = 0.1;
 
+  //Timing variables
   clock_t t;
+  double t1 = 0.0;
+  double t2 = 0.0;
+  double t3 = 0.0;
 
   int nPred = pred.cols();
   int nSamp = pred.rows();
 
   //Adagrad weights--the zeroeth element is for the intercept term, so all
   //accesses for elements need to be offset by one.
-  DenseVec agWeights = DenseVec::Random(nPred);
+  DenseVec agWeights = DenseVec::Random(nPred).cwiseAbs();
 
   //Tracker for the value of the objective function (here, nll_avg)
   DenseVec objTracker = DenseVec::Zero(nPred);
@@ -49,14 +90,14 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
   //Tracker for last-updated term
   vector<int> lastUpdate = vector<int>(nPred);
 
-  for(int test = 0; test < 20; test++){
-    t = clock();
-
+  for(int test = 0; test < 1; test++){
+    BEGIN_TIME();
   uint64_t iterNum = 0; //Iteration counter
   for(int i = 0; i < pred.rows(); i++){
     //Calculate the values needed for the gradient
+
     BetaVec predSamp = pred.row(i);
-    FLOATING exponent = predSamp.dot(guess); cout << exponent << endl;
+    FLOATING exponent = predSamp.dot(guess);
     FLOATING w = 1.0 / (1.0 + exp(-exponent));
     FLOATING y = r(i);
     FLOATING logitDelta = y - m * w;
@@ -65,6 +106,7 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
     FLOATING pointContribNLL = y * log(w) + (m-y) * log(1-w);
     nllAvg = nllAvg * nllWt + (1 - nllAvg) * pointContribNLL;
     objTracker(iterNum) = nllAvg;
+
 
     for(BetaVec::InnerIterator it(predSamp); it; ++it){
       int j = it.index();
@@ -79,16 +121,17 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, BetaVec& guess,
 
       // Update weights for Adagrad
       agWeights(j) += elem_gradient * elem_gradient;
-      FLOATING h = sqrt(agWeights(i) + adagradEpsilon);
+      FLOATING h = invSqrt(agWeights(i) + adagradEpsilon);
 
       // Scale element
-      FLOATING scaleFactor = masterStepSize / h;
+      FLOATING scaleFactor = masterStepSize * h;
 
-      it.valueRef() -= scaleFactor * elem_gradient;
+      guess(j) -= scaleFactor * elem_gradient;
     }
   }
+  END_TIME(t1);
   iterNum++;
-  cout << "Time taken for core iters: " << static_cast<double>(clock() - t)/CLOCKS_PER_SEC << "s" << endl;
+  cout << t1 << "  " << t2 << "  " << t3 << endl;
   }
 
   return objTracker;
@@ -128,8 +171,8 @@ int main(int argc,char** argv){
   PredictMat predictors = out.second;
 
   // Do SGD
-  BetaVec guess = DenseVec::Constant(predictors.cols(), 0.0).sparseView();
+  DenseVec guess = DenseVec::Constant(predictors.cols(), 0.0);
   DenseVec nll_trac = sgd_iteration(predictors, responses, guess);
 
-  cout << nll_trac << endl;
+  cout << guess << endl;
 }
