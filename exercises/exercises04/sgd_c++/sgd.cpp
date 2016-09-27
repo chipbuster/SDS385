@@ -136,12 +136,13 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
       // Update beta norm squared with (a+b)^2 = a^2 + 2ab + b^2
       betaNormSquared += 2 * totalDelta * guess(j) + totalDelta * totalDelta;
-
-      cout << "Iteration is " << i << endl;
     }
   }
 
   // Apply any ridge-regression penalties that we have not yet evaluated
+  #ifdef USE_OPENMP
+  #pragma omp parallel for
+  #endif
   for(int j = 0; j < nPred; j++){
     FLOATING skip = iterNum - lastUpdate[j];
     FLOATING l2Delta = regCoeff * skip * guess(j);
