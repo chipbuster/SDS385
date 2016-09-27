@@ -13,7 +13,7 @@
 /*##############################################################################
 ################################################################################
 # Define macros and inline functions to help with later computations/profiling #
-################################################################################
+###################################################ey don't #############################
 ##############################################################################*/
 
 #define BEGIN_TIME() t = clock()
@@ -156,6 +156,7 @@ int main(int argc,char** argv){
 
   if(argc != 2){
     cout << "Usage: " << argv[0] << " <path-to-svmlight-directory>" << endl;
+    return -1;
   }
 
   // Read all the svm files in from the given directory

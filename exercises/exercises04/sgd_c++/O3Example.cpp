@@ -12,8 +12,7 @@ double manySqrt(double x){
 
 int main(void){
     for (int i = 0; i < 100; i++){
-        double m = manySqrt(2.0);
-        // std::cout <<  m ; //Uncomment to see slowness
+        manySqrt(2.0);
     }
     std::cout << "Done!" << std::endl;
 }
