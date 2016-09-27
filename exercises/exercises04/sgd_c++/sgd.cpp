@@ -39,13 +39,13 @@ union cast_single{ uint32_t asInt; float asFloat; };
 static inline float Q_rsqrt( const float& number )
 { //Stolen from Wikipedia
   cast_single caster;
-	constexpr float threehalfs = 1.5F;
+  constexpr float threehalfs = 1.5F;
 
-	float x2 = number * 0.5F;
-	caster.asFloat  = number;
-	caster.asInt  = 0x5f3759df - ( caster.asInt >> 1 );               // what the fuck?
-	float y  = caster.asFloat;
-	y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
+  float x2 = number * 0.5F;
+  caster.asFloat  = number;
+  caster.asInt  = 0x5f3759df - ( caster.asInt >> 1 );               // what the fuck?
+  float y  = caster.asFloat;
+  y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
   y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
 
 	return y;
@@ -75,12 +75,6 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
   constexpr FLOATING adagradEpsilon = 1e-7;
   constexpr FLOATING m = 1.0;
 
-  //Timing variables
-  clock_t t;
-  double t1 = 0.0;
-  double t2 = 0.0;
-  double t3 = 0.0;
-
   int nPred = pred.cols();
   int nSamp = pred.rows();
 
@@ -97,8 +91,6 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
   //Tracker for last-updated term
   vector<int> lastUpdate = vector<int>(nPred);
 
-  for(int test = 0; test < 1; test++){
-    BEGIN_TIME();
   uint64_t iterNum = 0; //Iteration counter
   for(int i = 0; i < nSamp; i++){
     //Calculate the values needed for the gradient
@@ -136,9 +128,9 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
       // Update beta norm squared with (a+b)^2 = a^2 + 2ab + b^2
       betaNormSquared += 2 * totalDelta * guess(j) + totalDelta * totalDelta;
-
-      cout << "Iteration is " << i << endl;
     }
+
+    iterNum++;
   }
 
   // Apply any ridge-regression penalties that we have not yet evaluated
@@ -149,11 +141,6 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
     FLOATING scaleFactor = masterStepSize * h;
     FLOATING totalDelta = scaleFactor * l2Delta;
     guess(j) -= totalDelta;
-  }
-
-  END_TIME(t1);
-  iterNum++;
-  cout << t1 << "  " << t2 << "  " << t3 << endl;
   }
 
   return objTracker;
@@ -170,6 +157,9 @@ int main(int argc,char** argv){
   if(argc != 2){
     cout << "Usage: " << argv[0] << " <path-to-svmlight-directory>" << endl;
   }
+
+  // Read all the svm files in from the given directory
+  // See https://github.com/cxong/tinydir for details
 
   while (dir.has_next){
     tinydir_readfile(&dir, &file);
@@ -189,31 +179,7 @@ int main(int argc,char** argv){
 
   tinydir_close(&dir);
 
-/*
-  clock_t test;
-double q;
-  cout << "Testing fast inverse sqrt vs normal" << endl;
-  test = clock();
-  long derp = 0;
-  for(double z = 0.01; z < 10000; z += 0.0001){
-    q = 1.0 / std::sqrt(z);
-    derp++;
-    if (derp % 100 == 0) cout << q << endl;
-  }
-  double t1 = (double)(clock() - test) / CLOCKS_PER_SEC;
-
-derp = 0;
-  test = clock();
-  for(double z = 0.01; z < 10000; z += 0.0001){
-    q = invSqrt(z);
-    derp++;
-    if (derp % 100 == 0) cout << q << endl;
-  }
-  double t2 = (double)(clock() - test) / CLOCKS_PER_SEC;
-  cout << t1 << "  " << t2  << endl;
-*/
-
-  // Parse the files
+  // Parse the files that we read in
   vector<Entry> results = readFileList(filenames);
   std::pair<ResponseVec, PredictMat> out = genPredictors(results);
   cout << "Matrices generated. " << endl;
@@ -221,8 +187,12 @@ derp = 0;
   PredictMat predictors = out.second;
 
   // Do SGD
+
+  clock_t t = clock();
+
   DenseVec guess = DenseVec::Constant(predictors.cols(), 0.0);
   DenseVec nll_trac = sgd_iteration(predictors, responses, guess);
 
-//  cout << nll_trac << endl;
+  double time_taken = static_cast<double>(clock()  - t) / CLOCKS_PER_SEC;
+  cout << "After matrix generation, an SGD pass took " << time_taken << "s" << endl;
 }
