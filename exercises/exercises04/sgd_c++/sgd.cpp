@@ -4,50 +4,57 @@
 #include<iostream>
 #include<cstring>
 #include<ctime>
+#include<cstdint>
 
 #include "usertypes.hpp"
 #include "read_svmlight.hpp"
 #include "tinydir.h"
 
-#ifndef NDEBUG
-#include <gperftools/profiler.h>
-#endif
+/*##############################################################################
+################################################################################
+# Define macros and inline functions to help with later computations/profiling #
+################################################################################
+##############################################################################*/
 
 #define BEGIN_TIME() t = clock()
 #define END_TIME(var) t = clock() - t; var += (double)t / CLOCKS_PER_SEC
 
-//Using Carmack's magic, adapted for doubles
+//Using Carmack's magical fast inverse square root function
 #ifdef USE_DOUBLES
+union cast_double{ uint64_t asLong; double asDouble; };
 static inline double invSqrt( const double& x )
-{
-  double y = x;
-  double xhalf = ( double )0.5 * y;
-  long long i = *( long long* )( &y );
-  i = 0x5fe6ec85e7de30daLL - ( i >> 1 );//LL suffix for (long long) type for GCC
-  y = *( double* )( &i );
+{ //Stolen from physicsforums
+  cast_double caster;
+  caster.asDouble = x;
+  double xhalf = ( double )0.5 * caster.asDouble;
+  caster.asLong = 0x5fe6ec85e7de30daLL - ( caster.asLong >> 1 );//LL suffix for (long long) type for GCC
+  double y = caster.asDouble;
   y = y * ( ( double )1.5 - xhalf * y * y );
   y = y * ( ( double )1.5 - xhalf * y * y ); //For better accuracy
 
   return y;
 }
 #else
-float Q_rsqrt( float number )
-{
-	long i;
-	float x2, y;
+union cast_single{ uint32_t asInt; float asFloat; };
+static inline float Q_rsqrt( const float& number )
+{ //Stolen from Wikipedia
+  cast_single caster;
 	constexpr float threehalfs = 1.5F;
 
-	x2 = number * 0.5F;
-	y  = number;
-	i  = * ( long * ) &y;                       // evil floating point bit level hacking
-	i  = 0x5f3759df - ( i >> 1 );               // what the fuck?
-	y  = * ( float * ) &i;
+	float x2 = number * 0.5F;
+	caster.asFloat  = number;
+	caster.asInt  = 0x5f3759df - ( caster.asInt >> 1 );               // what the fuck?
+	float y  = caster.asFloat;
 	y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
   y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
 
 	return y;
 }
 #endif
+
+/* #############################################################################
+   ###################### BEGIN CODE ###########################################
+   ###########################################################################*/
 
 using namespace std;
 
@@ -67,7 +74,6 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
   //Compile-time constants--baked into code
   constexpr FLOATING adagradEpsilon = 1e-7;
   constexpr FLOATING m = 1.0;
-  constexpr FLOATING movingAverageRatio = 0.1;
 
   //Timing variables
   clock_t t;
@@ -80,12 +86,13 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
   //Adagrad weights--the zeroeth element is for the intercept term, so all
   //accesses for elements need to be offset by one.
-  DenseVec agWeights = DenseVec::Random(nPred).cwiseAbs();
+  DenseVec agWeights = DenseVec::Constant(nPred, 1e-3);
 
   //Tracker for the value of the objective function (here, nll_avg)
   DenseVec objTracker = DenseVec::Zero(nPred);
   FLOATING nllAvg = 0; //Negative log-likelihood averages
-  constexpr FLOATING nllWt = 0.1; //Term for weighting the NLL exponential decay
+  FLOATING betaNormSquared = guess.norm() * guess.norm();
+  constexpr FLOATING nllWt = 0.01; //Term for weighting the NLL exponential decay
 
   //Tracker for last-updated term
   vector<int> lastUpdate = vector<int>(nPred);
@@ -103,32 +110,47 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
     FLOATING logitDelta = y - m * w;
 
     //Update tracking negative log likelihood estimate and append to estimate
-    FLOATING pointContribNLL = y * log(w) + (m-y) * log(1-w);
-    nllAvg = nllAvg * nllWt + (1 - nllAvg) * pointContribNLL;
+    nllAvg = (1-nllWt) * nllAvg + nllWt * (m * log(w) * (y-m) * log(1 - w));
     objTracker(iterNum) = nllAvg;
-
 
     for(BetaVec::InnerIterator it(predSamp); it; ++it){
       int j = it.index();
 
       // Calculate the L2 penalty term for this element based on last-use time
       FLOATING skip = iterNum - lastUpdate[j];
-      FLOATING l2Delta = regCoeff * skip;
+      FLOATING l2Delta = (regCoeff * skip) * guess(j);
       lastUpdate[j] = iterNum;
 
       // Calculate gradient for this element
-      FLOATING elem_gradient = -(l2Delta + logitDelta) * it.value();
+      FLOATING elem_gradient = -logitDelta * it.value() - l2Delta;
 
       // Update weights for Adagrad
       agWeights(j) += elem_gradient * elem_gradient;
-      FLOATING h = invSqrt(agWeights(i) + adagradEpsilon);
+      FLOATING h = invSqrt(agWeights(j) + adagradEpsilon);
 
       // Scale element
       FLOATING scaleFactor = masterStepSize * h;
 
-      guess(j) -= scaleFactor * elem_gradient;
+      FLOATING totalDelta = scaleFactor * elem_gradient;
+      guess(j) -= totalDelta;
+
+      // Update beta norm squared with (a+b)^2 = a^2 + 2ab + b^2
+      betaNormSquared += 2 * totalDelta * guess(j) + totalDelta * totalDelta;
+
+      cout << "Iteration is " << i << endl;
     }
   }
+
+  // Apply any ridge-regression penalties that we have not yet evaluated
+  for(int j = 0; j < nPred; j++){
+    FLOATING skip = iterNum - lastUpdate[j];
+    FLOATING l2Delta = regCoeff * skip * guess(j);
+    FLOATING h = invSqrt(agWeights(j) + adagradEpsilon);
+    FLOATING scaleFactor = masterStepSize * h;
+    FLOATING totalDelta = scaleFactor * l2Delta;
+    guess(j) -= totalDelta;
+  }
+
   END_TIME(t1);
   iterNum++;
   cout << t1 << "  " << t2 << "  " << t3 << endl;
@@ -144,6 +166,10 @@ int main(int argc,char** argv){
   tinydir_open(&dir, dirname.c_str());
 
   vector<string> filenames;
+
+  if(argc != 2){
+    cout << "Usage: " << argv[0] << " <path-to-svmlight-directory>" << endl;
+  }
 
   while (dir.has_next){
     tinydir_readfile(&dir, &file);
@@ -163,6 +189,30 @@ int main(int argc,char** argv){
 
   tinydir_close(&dir);
 
+/*
+  clock_t test;
+double q;
+  cout << "Testing fast inverse sqrt vs normal" << endl;
+  test = clock();
+  long derp = 0;
+  for(double z = 0.01; z < 10000; z += 0.0001){
+    q = 1.0 / std::sqrt(z);
+    derp++;
+    if (derp % 100 == 0) cout << q << endl;
+  }
+  double t1 = (double)(clock() - test) / CLOCKS_PER_SEC;
+
+derp = 0;
+  test = clock();
+  for(double z = 0.01; z < 10000; z += 0.0001){
+    q = invSqrt(z);
+    derp++;
+    if (derp % 100 == 0) cout << q << endl;
+  }
+  double t2 = (double)(clock() - test) / CLOCKS_PER_SEC;
+  cout << t1 << "  " << t2  << endl;
+*/
+
   // Parse the files
   vector<Entry> results = readFileList(filenames);
   std::pair<ResponseVec, PredictMat> out = genPredictors(results);
@@ -174,5 +224,5 @@ int main(int argc,char** argv){
   DenseVec guess = DenseVec::Constant(predictors.cols(), 0.0);
   DenseVec nll_trac = sgd_iteration(predictors, responses, guess);
 
-  cout << guess << endl;
+//  cout << nll_trac << endl;
 }

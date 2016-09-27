@@ -176,14 +176,14 @@ vector<Entry> readFileList(vector<string> filenameList){
   // Read the entries from each file and place in a record
 #ifdef USE_OPENMP
   #pragma omp parallel for
-  for(int j = 0; j < numFiles; j++){
+  for(size_t j = 0; j < numFiles; j++){
     cout << "Processing " << filenameList[j] << endl;
     vector<Entry> tmp = readSVMLightFile(filenameList[j].c_str());
     #pragma omp critical
     fileEntries.push_back(tmp);
   }
 #else
-  for(int j = 0; j < numFiles; j++){
+  for(size_t j = 0; j < numFiles; j++){
     vector<Entry> tmp = readSVMLightFile(filenameList[j].c_str();
     fileEntries.push_back(tmp);
   }
@@ -227,7 +227,7 @@ std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry>& allEntries){
 
   //Now we know N, P, and the max# elems per row. Allocate matrices.
   ResponseVec response(N);
-  PredictMat preds(N, maxFieldnum);
+  PredictMat preds(N, maxFieldnum + 1);
   preds.reserve(Eigen::VectorXi::Constant(N, maxPredPerRow + 1));
 
   // Loop over entries and store them into the sparse matrix
@@ -240,7 +240,7 @@ std::pair<ResponseVec, PredictMat> genPredictors(vector<Entry>& allEntries){
       //Insert the entries one-by-one
       preds.insert(rowIndex, p.fieldnum-1) = p.value;
     }
-    preds.insert(rowIndex, maxPredPerRow) = 1.0; //Intercept term
+    preds.insert(rowIndex, maxFieldnum) = 1.0; //Intercept term
     rowIndex++;
   }
 
