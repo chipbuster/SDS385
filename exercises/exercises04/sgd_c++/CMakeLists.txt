@@ -14,7 +14,6 @@ option(USE_DOUBLES "Use 64-bit floating point. More accurate, but uses over 20GB
 ##################################
 #### Find required libraries #####
 ##################################
-find_package(Eigen3 REQUIRED)
 find_package(OpenMP)
 
 # Add openmp flags if the compiler supports it
@@ -22,6 +21,7 @@ if(OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS} -DUSE_OPENMP")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS} -DUSE_OPENMP")
 endif()
+
 
 # Process double flags, warning the user about memory consumption
 if(USE_DOUBLES)
@@ -45,7 +45,6 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS}\
 -Ofast -mavx -march=native -flto -DNDEBUG")
 
 # Mark Eigen headers as system to suppress warnings from them
-include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
 include_directories(SYSTEM ${SGD_SOURCE_DIR}/include/3party)
 include_directories(${SGD_SOURCE_DIR}/include)
 
