@@ -34,3 +34,56 @@ But as we'll see, getting stochastic-gradient descent right is tricky.  We'll le
 
 
 
+## Exercises 5: Sparsity
+
+[Link here.](exercises05/exercises05.pdf)
+
+In many problems, we wish to impose _sparsity_ on the parameters of a statistical model -- that is, the assumption that some parameters are zero.    In this set of exercises, we will learn a few basic ideas that are important for thinking about sparse statistical models at scale.
+
+Please finish reading Chapter 3.4 of [The Elements of Statistical Learning](http://statweb.stanford.edu/~tibs/ElemStatLearn/), although feel free to skip the part about "Least angle regression."  The key things to take away from this reading are:  
+- the lasso  
+- the idea of the lasso solution path (Figure 3.10)  
+- the degrees of freedom for the lasso (page 77)
+
+Note that we will work the lasso objective in "Lagrangian form" (Equation 3.52).  If you want a short overview of how the software you'll be using on this set of exercises actually fits the lasso, see Chapter 3.8.6 (Pathwise Coordinate Optimization), or the paper below for more detail.  But as you'll see, it's super fast.
+
+### Extended reading
+
+The following papers treat some of the issues that arise in lasso regression in much greater detail.  They are optional, but provide nice background.
+
+- [The original paper on the lasso](http://statweb.stanford.edu/~tibs/lasso/lasso.pdf) 
+- [Paper on pathwise coordinate optimization](http://arxiv.org/pdf/0708.1485.pdf)  
+- ["Degrees of freedom" of the lasso fit](https://projecteuclid.org/euclid.aos/1194461726)  
+- [Estimating the residual variance from the lasso fit](https://arxiv.org/abs/1311.5274).  Note that in the exercises we use their Equation 2 in our definition of CP.  
+- [Estimating prediction error](https://people.eecs.berkeley.edu/~jordan/sail/readings/archive/efron_Cp.pdf).  
+
+
+## Exercises 6: the proximal gradient method
+
+[Link here.](exercises06/exercises06.pdf)
+
+The culmination of the first four exercises was _stochastic gradient descent_, which is one of the core algorithms that powers modern data science.  Over the next few sets of exercises, we will build up to two other such core algorithms: the proximal gradient method, and ADMM, which stands for the _alternating direction method of multipliers._  These algorithms are broadly useful for optimizing objective functions f(x) in statistics that have either or both of the following two features:  
+- f(x) is a sum of two terms, one of which measures fit to the data, and the other of which penalizes model complexity.  
+- f(x) is not everywhere smooth, so that we cannot assume derivatives exist.  
+
+Both features come up in problems where we wish to impose sparsity on a parameter in a statistical model (i.e. the lasso of the previous exercises).  
+
+In this set of exercises, we begin our study of scalable algorithms that can handle sparsity, with the proximal gradient method.
+
+
+### Optional reading
+
+These exercises are fairly self contained.  Nonetheless, if you want a very detailed reference on the proximal gradient algorithm, and many related algorithms, I highly recommend [this review paper](http://web.stanford.edu/~boyd/papers/prox_algs.html) by Parikh and Boyd.
+
+
+## Exercises 7: Introduction to ADMM
+
+Link coming soon.
+
+### Reading
+
+In this set of exercises, there is a lot of reading.  The main reference is a review paper called [Distributed Optimization and Statistical Learning via the Alternating Direction Method of Multipliers](http://stanford.edu/~boyd/papers/admm_distr_stats.html), by Boyd et al.  This is a truly excellent review paper -- and a popular one, as its citation count on Google Scholar reveals.  For this set of exercises I ask that you read Sections 1-6 of this paper.
+
+You may or may not be familiar with some of the basic concepts in convex optimization used in the paper.  If you're not, you can find some very useful background material on Lagrangians and duality in Chapter 3.3 of [Convex Optimization](http://stanford.edu/~boyd/cvxbook/), by Boyd and Vandeberghe (see the Download link at the bottom).  
+
+
