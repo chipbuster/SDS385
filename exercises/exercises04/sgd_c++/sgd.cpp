@@ -3,6 +3,7 @@
 #include<utility>
 #include<iostream>
 #include<cstring>
+#include<ctime>
 #include<cstdint>
 
 #include "usertypes.hpp"
@@ -55,11 +56,13 @@ static inline float Q_rsqrt( const float& number )
    ###################### BEGIN CODE ###########################################
    ###########################################################################*/
 
+using namespace std;
+
 /* Runs a single iteration of SGD through the entire datase (picking each
  point exactly once). Does not return a value, guess is modified in-place */
-void sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
+DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
                    FLOATING regCoeff = 1e-4,
-                   FLOATING masterStep = 1e-1){
+                   FLOATING masterStepSize = 1e-1){
   /* Args:
 
      pred : the sparse matrix of predictors
@@ -70,67 +73,62 @@ void sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
   //Compile-time constants--baked into code
   constexpr FLOATING adagradEpsilon = 1e-7;
+  constexpr FLOATING m = 1.0;
+
   //Timing variables
+  clock_t t;
   double t1 = 0.0;
   double t2 = 0.0;
   double t3 = 0.0;
 
   int nPred = pred.cols();
-  BetaVec gradient = BetaVec(nPred);
-  DenseVec agWeights = DenseVec::Random(nPred); //Adagrad weights
-  DenseVec epsVec = DenseVec::Constant(nPred, adagradEpsilon);
+  int nSamp = pred.rows();
 
-  #ifndef NDEBUG
-  ProfilerStart("gperftools.out");
+  //Adagrad weights--the zeroeth element is for the intercept term, so all
+  //accesses for elements need to be offset by one.
   DenseVec agWeights = DenseVec::Constant(nPred, 1e-3);
 
-  constexpr FLOATING m = 1.0;
+  //Tracker for the value of the objective function (here, nll_avg)
+  DenseVec objTracker = DenseVec::Zero(nPred);
+  FLOATING nllAvg = 0; //Negative log-likelihood averages
   FLOATING betaNormSquared = guess.norm() * guess.norm();
   constexpr FLOATING nllWt = 0.01; //Term for weighting the NLL exponential decay
 
-  clock_t t;
-  double t1 = 0;
-  double t2 = 0;
-  double t3 = 0;
+  //Tracker for last-updated term
+  vector<int> lastUpdate = vector<int>(nPred);
 
   for(int test = 0; test < 1; test++){
     BEGIN_TIME();
-    t = clock();
+  uint64_t iterNum = 0; //Iteration counter
+  for(int i = 0; i < nSamp; i++){
+    //Calculate the values needed for the gradient
 
     BetaVec predSamp = pred.row(i);
     FLOATING exponent = predSamp.dot(guess);
     FLOATING w = 1.0 / (1.0 + exp(-exponent));
     FLOATING y = r(i);
-    FLOATING coefficient = m * w - y;
-    t = clock() - t;
-    t1 += (double)t / CLOCKS_PER_SEC;
+    FLOATING logitDelta = y - m * w;
+
+    //Update tracking negative log likelihood estimate and append to estimate
     nllAvg = (1-nllWt) * nllAvg + nllWt * (m * log(w) * (y-m) * log(1 - w));
+    objTracker(iterNum) = nllAvg;
 
-    t = clock();
-    gradient = coefficient * predSamp;
-    gradient.eval();
-    t = clock() - t;
-    t2 += (double)t / CLOCKS_PER_SEC;
+    for(BetaVec::InnerIterator it(predSamp); it; ++it){
+      int j = it.index();
 
-    // Update the guess by the AdaGrad rules
-    t = clock();
+      // Calculate the L2 penalty term for this element based on last-use time
+      FLOATING skip = iterNum - lastUpdate[j];
       FLOATING l2Delta = (regCoeff * skip) * guess(j);
-    for(BetaVec::InnerIterator it(gradient); it; ++it){
-      int q = it.index();
-      guess(q) += it.value() * 0.0001;
-    }
-    guess.eval();
-    t = clock() - t;
-    t3 += (double)t / CLOCKS_PER_SEC;
+      lastUpdate[j] = iterNum;
 
-    // Update the AdaGrad weights
+      // Calculate gradient for this element
       FLOATING elem_gradient = -logitDelta * it.value() - l2Delta;
 
-    cout << "Index is " << i << endl;
-  }
+      // Update weights for Adagrad
+      agWeights(j) += elem_gradient * elem_gradient;
       FLOATING h = invSqrt(agWeights(j) + adagradEpsilon);
 
-  cout << t1 << "  " << t2 << "  " << t3 << endl;
+      // Scale element
       FLOATING scaleFactor = masterStepSize * h;
 
       FLOATING totalDelta = scaleFactor * elem_gradient;
@@ -139,10 +137,11 @@ void sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
       // Update beta norm squared with (a+b)^2 = a^2 + 2ab + b^2
       betaNormSquared += 2 * totalDelta * guess(j) + totalDelta * totalDelta;
 
+      cout << "Iteration is " << i << endl;
+    }
+  }
+
   // Apply any ridge-regression penalties that we have not yet evaluated
-  #ifdef USE_OPENMP
-  #pragma omp parallel for
-  #endif
   for(int j = 0; j < nPred; j++){
     FLOATING skip = iterNum - lastUpdate[j];
     FLOATING l2Delta = regCoeff * skip * guess(j);
@@ -153,8 +152,11 @@ void sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
   }
 
   END_TIME(t1);
+  iterNum++;
   cout << t1 << "  " << t2 << "  " << t3 << endl;
+  }
 
+  return objTracker;
 }
 
 int main(int argc,char** argv){
@@ -220,6 +222,7 @@ derp = 0;
 
   // Do SGD
   DenseVec guess = DenseVec::Constant(predictors.cols(), 0.0);
-  sgd_iteration(predictors, responses, guess);
+  DenseVec nll_trac = sgd_iteration(predictors, responses, guess);
+
 //  cout << nll_trac << endl;
 }
