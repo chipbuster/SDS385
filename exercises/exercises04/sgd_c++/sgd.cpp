@@ -25,10 +25,37 @@ static clock_t t;
 //Machine epsilons (used for bumping calcuations)
 constexpr FLOATING machEps = std::numeric_limits<FLOATING>::epsilon();
 
-//Using Carmack's magical fast inverse square root function. Need to use different
-//magic variables to preserve correctness/performance, and use unions to bitcast
-//to avoid potentially undefined behavior.
-//See https://en.wikipedia.org/wiki/Fast_inverse_square_root for algorithm.
+/* Use Martin Ankerl's fastPow:
+   http://martin.ankerl.com/2012/01/25/optimized-approximative-pow-in-c-and-cpp/
+   to provide quick powers for Tikhonov regularization */
+inline double fastPrecisePow(double a, double b) {
+  // calculate approximation with fraction of the exponent
+  int e = (int) b;
+  union {
+    double d;
+    int x[2];
+  } u = { a };
+  u.x[1] = (int)((b - e) * (u.x[1] - 1072632447) + 1072632447);
+  u.x[0] = 0;
+
+  // exponentiation by squaring with the exponent's integer part
+  // double r = u.d makes everything much slower, not sure why
+  double r = 1.0;
+  while (e) {
+    if (e & 1) {
+      r *= a;
+    }
+    a *= a;
+    e >>= 1;
+  }
+
+  return r * u.d;
+}
+
+/* Using Carmack's magical fast inverse square root function. Need to use different
+   magic variables to preserve correctness/performance, and use unions to bitcast
+   to avoid potentially undefined behavior.
+   See https://en.wikipedia.org/wiki/Fast_inverse_square_root for algorithm. */
 #ifdef USE_DOUBLES
 union cast_double{ uint64_t asLong; double asDouble; };
 static inline double invSqrt( const double& x )
@@ -76,7 +103,6 @@ FLOATING calc_all_likelihood(PredictMat& pred, ResponseVec& r, DenseVec& guess){
   return -outp.sum();
 }
 
-
 /* #############################################################################
    ###################### BEGIN CODE ###########################################
    ###########################################################################*/
@@ -89,7 +115,6 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
                    FLOATING regCoeff = 1e-4,
                    FLOATING masterStepSize = 1e-1){
   /* Args:
-
      pred : the sparse matrix of predictors
      r    : the vector of responses (0-1)
      guess: the guess for gradient descent
@@ -155,7 +180,7 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
       // Deferred L2 updates, see comment above this for-loop
       FLOATING skip = iterNum - lastUpdate[j];
-      FLOATING l2Penalty = pow(1 - regCoeff, skip) * guess(j);
+      FLOATING l2Penalty = fastPrecisePow(1 - regCoeff, skip) * guess(j);
       lastUpdate[j] = iterNum;
 
       // Calculate gradient(j), this element of the gradient
