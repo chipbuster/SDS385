@@ -16,10 +16,15 @@
 ###################################################ey don't #############################
 ##############################################################################*/
 
+//Macros for timing things.
+static clock_t t;
 #define BEGIN_TIME() t = clock()
 #define END_TIME(var) t = clock() - t; var += (double)t / CLOCKS_PER_SEC
 
-//Using Carmack's magical fast inverse square root function
+//Using Carmack's magical fast inverse square root function. Need to use different
+//magic variables to preserve correctness/performance, and use unions to bitcast
+//to avoid potentially undefined behavior.
+//See https://en.wikipedia.org/wiki/Fast_inverse_square_root for algorithm.
 #ifdef USE_DOUBLES
 union cast_double{ uint64_t asLong; double asDouble; };
 static inline double invSqrt( const double& x )
@@ -36,7 +41,7 @@ static inline double invSqrt( const double& x )
 }
 #else
 union cast_single{ uint32_t asInt; float asFloat; };
-static inline float Q_rsqrt( const float& number )
+static inline float invSqrt( const float& number )
 { //Stolen from Wikipedia
   cast_single caster;
   constexpr float threehalfs = 1.5F;
@@ -88,13 +93,13 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
   FLOATING betaNormSquared = guess.norm() * guess.norm();
   constexpr FLOATING nllWt = 0.01; //Term for weighting the NLL exponential decay
 
-  //Tracker for last-updated term
+  //Tracker for last-updated term. Used to do lazy updates of the Tikhonov reg.
   vector<int> lastUpdate = vector<int>(nPred);
 
   uint64_t iterNum = 0; //Iteration counter
+
   for(int i = 0; i < nSamp; i++){
     //Calculate the values needed for the gradient
-
     BetaVec predSamp = pred.row(i);
     FLOATING exponent = predSamp.dot(guess);
     FLOATING w = 1.0 / (1.0 + exp(-exponent));
@@ -105,26 +110,43 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
     nllAvg = (1-nllWt) * nllAvg + nllWt * (m * log(w) * (y-m) * log(1 - w));
     objTracker(iterNum) = nllAvg;
 
+    /* In Eigen 3.2.9, it is very difficult to keep sparse vectors sparse--they
+       keep turning into dense vectors, killing performance. To solve this, we
+       explicitly use dense vectors, but only iterate over their nonzero components
+       using an InnerIterator on the sample point. This is the key to achieving
+       speed for this program.
+    */
+
+    /* In theory, we need to update every single term of the estimate every
+       iteration to account for the L2 regularization term. However, this
+       is quite wasteful, since it means having to iterate over 2.4mil elements.
+       Instead, we defer updates until the element is accessed again, e.g. if
+       the element is accessed on iteration 5 and again on iteration 30, we apply
+       25 iterations of regularization all at once on iteration 30. This also helps
+       speed things up, and some thought will show that the effect is almost
+       identical, aside from the negative log-likelihood calculations.
+    */
+
     for(BetaVec::InnerIterator it(predSamp); it; ++it){
       int j = it.index();
 
-      // Calculate the L2 penalty term for this element based on last-use time
+      // Deferred L2 updates, see comment above this for-loop
       FLOATING skip = iterNum - lastUpdate[j];
-      FLOATING l2Delta = (regCoeff * skip) * guess(j);
+      FLOATING l2Penalty = (regCoeff * skip) * guess(j);
       lastUpdate[j] = iterNum;
 
-      // Calculate gradient for this element
-      FLOATING elem_gradient = -logitDelta * it.value() - l2Delta;
+      // Calculate gradient(j), this element of the gradient
+      FLOATING elem_gradient = -logitDelta * it.value() - l2Penalty;
 
       // Update weights for Adagrad
       agWeights(j) += elem_gradient * elem_gradient;
+
+      // Calculate the scaling factor using fast-inverse-square-root
       FLOATING h = invSqrt(agWeights(j) + adagradEpsilon);
 
-      // Scale element
       FLOATING scaleFactor = masterStepSize * h;
-
       FLOATING totalDelta = scaleFactor * elem_gradient;
-      guess(j) -= totalDelta;
+      guess(j) -= totalDelta; //Update this element
 
       // Update beta norm squared with (a+b)^2 = a^2 + 2ab + b^2
       betaNormSquared += 2 * totalDelta * guess(j) + totalDelta * totalDelta;
@@ -180,20 +202,22 @@ int main(int argc,char** argv){
 
   tinydir_close(&dir);
 
-  // Parse the files that we read in
+  // Parse the files that we read in and generate predictors/responses
   vector<Entry> results = readFileList(filenames);
   std::pair<ResponseVec, PredictMat> out = genPredictors(results);
   cout << "Matrices generated. " << endl;
   ResponseVec responses = out.first;
   PredictMat predictors = out.second;
 
-  // Do SGD
 
-  clock_t t = clock();
-
+  t = clock();
+  //Create an initial guess and run a single SGD iteration
   DenseVec guess = DenseVec::Constant(predictors.cols(), 0.0);
   DenseVec nll_trac = sgd_iteration(predictors, responses, guess);
 
   double time_taken = static_cast<double>(clock()  - t) / CLOCKS_PER_SEC;
   cout << "After matrix generation, an SGD pass took " << time_taken << "s" << endl;
+
+  // cout << guess << endl; //Uncomment to convince yourself that the compiler
+                            //has not optimized out the call to sgd_iteration
 }

@@ -171,19 +171,19 @@ vector<Entry> readFileList(vector<string> filenameList){
 
   vector<vector<Entry> > fileEntries;
   vector<Entry> allEntries;
-  size_t numFiles = filenameList.size();
+  int numFiles = static_cast<int>(filenameList.size());
 
   // Read the entries from each file and place in a record
 #ifdef USE_OPENMP
   #pragma omp parallel for
-  for(size_t j = 0; j < numFiles; j++){
+  for(int j = 0; j < numFiles; j++){
     cout << "Processing " << filenameList[j] << endl;
     vector<Entry> tmp = readSVMLightFile(filenameList[j].c_str());
     #pragma omp critical
     fileEntries.push_back(tmp);
   }
 #else
-  for(size_t j = 0; j < numFiles; j++){
+  for(int j = 0; j < numFiles; j++){
     vector<Entry> tmp = readSVMLightFile(filenameList[j].c_str();
     fileEntries.push_back(tmp);
   }
