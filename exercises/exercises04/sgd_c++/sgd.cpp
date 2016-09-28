@@ -23,7 +23,7 @@ static clock_t t;
 #define END_TIME(var) t = clock() - t; var += (double)t / CLOCKS_PER_SEC
 
 //Machine epsilons (used for bumping calcuations)
-constexpr FLOATING machEps = std::numeric_limits<FLOATING>::epsilon();
+//constexpr FLOATING machEps = std::numeric_limits<FLOATING>::epsilon();
 
 /* Use Martin Ankerl's fastPow:
    http://martin.ankerl.com/2012/01/25/optimized-approximative-pow-in-c-and-cpp/
@@ -151,7 +151,7 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
     //Update tracking negative log likelihood estimate and append to estimate
     // nllAvg = calc_all_likelihood(pred, r, guess); // Uncomment for full negloglik
-    nllAvg = y * log(w) + (m - y) * log(1 - w);
+    nllAvg = nllWt * nllAvg + ((1 - nllWt) * ( y * log(w) + (m - y) * log(1 - w) ));
     objTracker(iterNum) = -nllAvg;
 
     /* In Eigen 3.2.9, it is very difficult to keep sparse vectors sparse--they
@@ -265,7 +265,13 @@ int main(int argc,char** argv){
 
   double time_taken = static_cast<double>(clock()  - t) / CLOCKS_PER_SEC;
   cout << "After matrix generation, an SGD pass took " << time_taken << "s" << endl;
+  cout << "Writing negative log-likelihood history to 'nll_tracker.csv'" << endl;
 
-  // cout << guess << endl; //Uncomment to convince yourself that the compiler
-                            //has not optimized out the call to sgd_iteration
+  std::ofstream outfile("nll_tracker.csv");
+
+  for (int i = 0; i < nll_trac.size(); i++){
+    if(i != 0){ outfile << ",";}
+    outfile << nll_trac(i);
+  }
+  outfile << endl;
 }
