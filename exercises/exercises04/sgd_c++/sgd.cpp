@@ -5,6 +5,7 @@
 #include<cstring>
 #include<ctime>
 #include<cstdint>
+#include<limits>
 
 #include "usertypes.hpp"
 #include "read_svmlight.hpp"
@@ -20,6 +21,9 @@
 static clock_t t;
 #define BEGIN_TIME() t = clock()
 #define END_TIME(var) t = clock() - t; var += (double)t / CLOCKS_PER_SEC
+
+//Machine epsilons (used for bumping calcuations)
+constexpr FLOATING machEps = std::numeric_limits<FLOATING>::epsilon();
 
 //Using Carmack's magical fast inverse square root function. Need to use different
 //magic variables to preserve correctness/performance, and use unions to bitcast
@@ -112,19 +116,18 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
   //Tracker for last-updated term. Used to do lazy updates of the Tikhonov reg.
   vector<int> lastUpdate = vector<int>(nPred);
 
-  uint64_t iterNum = 0; //Iteration counter
-
-  for(int i = 0; i < 1500; i++){
+  for(int iterNum = 0; iterNum < nSamp; iterNum++){
     //Calculate the values needed for the gradient
-    BetaVec predSamp = pred.row(i);
+    BetaVec predSamp = pred.row(iterNum);
     FLOATING exponent = predSamp.dot(guess);
     FLOATING w = 1.0 / (1.0 + exp(-exponent));
-    FLOATING y = r(i);
+    FLOATING y = r(iterNum);
     FLOATING logitDelta = m * w - y;
 
     //Update tracking negative log likelihood estimate and append to estimate
-    nllAvg = calc_all_likelihood(pred, r, guess);
-    objTracker(iterNum) = nllAvg;
+    // nllAvg = calc_all_likelihood(pred, r, guess); // Uncomment for full negloglik
+    nllAvg = y * log(w) + (m - y) * log(1 - w);
+    objTracker(iterNum) = -nllAvg;
 
     /* In Eigen 3.2.9, it is very difficult to keep sparse vectors sparse--they
        keep turning into dense vectors, killing performance. To solve this, we
@@ -141,6 +144,10 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
        25 iterations of regularization all at once on iteration 30. This also helps
        speed things up, and some thought will show that the effect is almost
        identical, aside from the negative log-likelihood calculations.
+
+       We know that B_n = B_{n-1} - \lambda B_{n-1}, which says that
+       B_n = (1 - \lambda)^n B_0, or more generally,
+       B_{n+k} = (1 - \lambda)^k * B_n
     */
 
     for(BetaVec::InnerIterator it(predSamp); it; ++it){
@@ -148,11 +155,11 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
       // Deferred L2 updates, see comment above this for-loop
       FLOATING skip = iterNum - lastUpdate[j];
-      //      FLOATING l2Penalty = (regCoeff * skip) * guess(j);
-      //      lastUpdate[j] = iterNum;
+      FLOATING l2Penalty = pow(1 - regCoeff, skip) * guess(j);
+      lastUpdate[j] = iterNum;
 
       // Calculate gradient(j), this element of the gradient
-      FLOATING elem_gradient = -logitDelta * it.value();// - l2Penalty;
+      FLOATING elem_gradient = -logitDelta * it.value() - l2Penalty;
 
       // Update weights for Adagrad
       agWeights(j) += elem_gradient * elem_gradient;
@@ -168,17 +175,16 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
       betaNormSquared += 2 * totalDelta * guess(j) + totalDelta * totalDelta;
     }
 
-    cout << "On IterNum " << iterNum << ", NLLAvg is " << nllAvg << endl;
-    iterNum++;
+    //    cout << "On IterNum " << iterNum << ", NLLAvg is " << nllAvg << endl;
   }
 
   // Apply any ridge-regression penalties that we have not yet evaluated
   for(int j = 0; j < nPred; j++){
-    FLOATING skip = iterNum - lastUpdate[j];
-    FLOATING l2Delta = regCoeff * skip * guess(j);
+    FLOATING skip = nSamp - lastUpdate[j];
+    FLOATING l2Penalty = pow(1 - regCoeff, skip) * guess(j);
     FLOATING h = invSqrt(agWeights(j) + adagradEpsilon);
     FLOATING scaleFactor = masterStepSize * h;
-    FLOATING totalDelta = scaleFactor * l2Delta;
+    FLOATING totalDelta = scaleFactor * l2Penalty;
     guess(j) -= totalDelta;
   }
 
@@ -230,16 +236,6 @@ int main(int argc,char** argv){
   t = clock();
   //Create an initial guess and run a single SGD iteration
   DenseVec guess = DenseVec::Constant(predictors.cols(), 0.0);
-
-  /*
-  cout << calc_all_likelihood(predictors, responses, guess) << endl;
-
-  guess = DenseVec::Constant(predictors.cols(), 0.2);
-  cout << calc_all_likelihood(predictors, responses, guess) << endl;
-
-  guess = DenseVec::Constant(predictors.cols(), 0.5);
-  cout << calc_all_likelihood(predictors, responses, guess) << endl;
-  */
   DenseVec nll_trac = sgd_iteration(predictors, responses, guess);
 
   double time_taken = static_cast<double>(clock()  - t) / CLOCKS_PER_SEC;
