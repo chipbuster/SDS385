@@ -16,5 +16,4 @@ typedef Eigen::SparseVector<float> BetaVec;
 typedef float FLOATING;
 #endif
 
-
 #endif

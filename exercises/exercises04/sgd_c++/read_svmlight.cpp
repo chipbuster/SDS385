@@ -184,7 +184,7 @@ vector<Entry> readFileList(vector<string> filenameList){
   }
 #else
   for(int j = 0; j < numFiles; j++){
-    vector<Entry> tmp = readSVMLightFile(filenameList[j].c_str();
+    vector<Entry> tmp = readSVMLightFile(filenameList[j].c_str());
     fileEntries.push_back(tmp);
   }
 #endif

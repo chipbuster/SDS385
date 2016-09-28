@@ -13,7 +13,7 @@
 /*##############################################################################
 ################################################################################
 # Define macros and inline functions to help with later computations/profiling #
-###################################################ey don't #############################
+################################################################################
 ##############################################################################*/
 
 //Macros for timing things.
@@ -32,7 +32,7 @@ static inline double invSqrt( const double& x )
   cast_double caster;
   caster.asDouble = x;
   double xhalf = ( double )0.5 * caster.asDouble;
-  caster.asLong = 0x5fe6ec85e7de30daLL - ( caster.asLong >> 1 );//LL suffix for (long long) type for GCC
+  caster.asLong = 0x5fe6ec85e7de30daLL - ( caster.asLong >> 1 );
   double y = caster.asDouble;
   y = y * ( ( double )1.5 - xhalf * y * y );
   y = y * ( ( double )1.5 - xhalf * y * y ); //For better accuracy
@@ -48,7 +48,7 @@ static inline float invSqrt( const float& number )
 
   float x2 = number * 0.5F;
   caster.asFloat  = number;
-  caster.asInt  = 0x5f3759df - ( caster.asInt >> 1 );               // what the fuck?
+  caster.asInt  = 0x5f3759df - ( caster.asInt >> 1 ); // what the fuck?
   float y  = caster.asFloat;
   y  = y * ( threehalfs - ( x2 * y * y ) );   // 1st iteration
   y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
@@ -73,7 +73,7 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
      pred : the sparse matrix of predictors
      r    : the vector of responses (0-1)
      guess: the guess for gradient descent
-     regCoeff : The L2 regularization coefficient
+     regCoeff : The L2 regularization coefficient (lambda)
      masterStep: the master step size for Adagrad */
 
   //Compile-time constants--baked into code
