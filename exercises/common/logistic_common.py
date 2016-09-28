@@ -50,9 +50,18 @@ def gen_likelihood_function(X,y,m):
     def likelihood(B):
         result = 0  # value initialization
 
-        exp = np.dot(X,B)
+        exp = X * B
+        exp = exp.todense()
         w = spsp.expit(exp)
-        return -spst.binom.logpmf(y,m,w).sum()
+
+        print(np.sum(exp))
+
+        sum = 0
+        for i in range(len(y)):
+            yi = 0 if y[i] < 0 else 1
+            sum -= spst.binom.logpmf(yi,m[i],w[i])
+
+        return sum
 
     return likelihood
 

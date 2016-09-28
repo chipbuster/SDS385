@@ -57,6 +57,22 @@ static inline float invSqrt( const float& number )
 }
 #endif
 
+FLOATING calc_all_likelihood(PredictMat& pred, ResponseVec& r, DenseVec& guess){
+  /* A function to calculate the entire likelihood function. Probably slow as
+     all hell and CERTAINLY not designed to be used in production. */
+
+  DenseVec outp = pred * guess;
+  cout << outp.sum() << endl;
+  #pragma omp parallel for
+  for(int j = 0; j < pred.rows(); j++){
+    outp(j) = 1.0 / (1.0 + exp(-outp(j))); // Calculate expit function
+    outp(j) = r(j) * log(outp(j)) + (1 - r(j)) * log(1 - outp(j) + 1e-9);
+  }
+
+  return -outp.sum();
+}
+
+
 /* #############################################################################
    ###################### BEGIN CODE ###########################################
    ###########################################################################*/
@@ -98,16 +114,16 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
   uint64_t iterNum = 0; //Iteration counter
 
-  for(int i = 0; i < nSamp; i++){
+  for(int i = 0; i < 1500; i++){
     //Calculate the values needed for the gradient
     BetaVec predSamp = pred.row(i);
     FLOATING exponent = predSamp.dot(guess);
     FLOATING w = 1.0 / (1.0 + exp(-exponent));
     FLOATING y = r(i);
-    FLOATING logitDelta = y - m * w;
+    FLOATING logitDelta = m * w - y;
 
     //Update tracking negative log likelihood estimate and append to estimate
-    nllAvg = (1-nllWt) * nllAvg + nllWt * (m * log(w) * (y-m) * log(1 - w));
+    nllAvg = calc_all_likelihood(pred, r, guess);
     objTracker(iterNum) = nllAvg;
 
     /* In Eigen 3.2.9, it is very difficult to keep sparse vectors sparse--they
@@ -132,11 +148,11 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
       // Deferred L2 updates, see comment above this for-loop
       FLOATING skip = iterNum - lastUpdate[j];
-      FLOATING l2Penalty = (regCoeff * skip) * guess(j);
-      lastUpdate[j] = iterNum;
+      //      FLOATING l2Penalty = (regCoeff * skip) * guess(j);
+      //      lastUpdate[j] = iterNum;
 
       // Calculate gradient(j), this element of the gradient
-      FLOATING elem_gradient = -logitDelta * it.value() - l2Penalty;
+      FLOATING elem_gradient = -logitDelta * it.value();// - l2Penalty;
 
       // Update weights for Adagrad
       agWeights(j) += elem_gradient * elem_gradient;
@@ -146,12 +162,13 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
       FLOATING scaleFactor = masterStepSize * h;
       FLOATING totalDelta = scaleFactor * elem_gradient;
-      guess(j) -= totalDelta; //Update this element
+      guess(j) += totalDelta; //Update this element
 
       // Update beta norm squared with (a+b)^2 = a^2 + 2ab + b^2
       betaNormSquared += 2 * totalDelta * guess(j) + totalDelta * totalDelta;
     }
 
+    cout << "On IterNum " << iterNum << ", NLLAvg is " << nllAvg << endl;
     iterNum++;
   }
 
@@ -213,6 +230,16 @@ int main(int argc,char** argv){
   t = clock();
   //Create an initial guess and run a single SGD iteration
   DenseVec guess = DenseVec::Constant(predictors.cols(), 0.0);
+
+  /*
+  cout << calc_all_likelihood(predictors, responses, guess) << endl;
+
+  guess = DenseVec::Constant(predictors.cols(), 0.2);
+  cout << calc_all_likelihood(predictors, responses, guess) << endl;
+
+  guess = DenseVec::Constant(predictors.cols(), 0.5);
+  cout << calc_all_likelihood(predictors, responses, guess) << endl;
+  */
   DenseVec nll_trac = sgd_iteration(predictors, responses, guess);
 
   double time_taken = static_cast<double>(clock()  - t) / CLOCKS_PER_SEC;
