@@ -7,6 +7,8 @@ Okay, not really. But it *is* intended to be a speedy stochastic gradient descen
 
 The assignment statement can be found [here](https://github.com/jgscott/SDS385/blob/master/exercises/exercises04.md).
 
+See Hints.md for some performance things I learned while making this project.
+
 **IF YOU SEE A TYPE YOU DON'T UNDERSTAND, CHECK TO SEE IF IT IS IN `usertypes.h` FIRST!**
 
 ## Prerequisites

@@ -42,7 +42,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}
 # Add CMake debugging and release flags
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS} -g -O2")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS}\
--Ofast -mavx -march=native -flto -DNDEBUG")
+-O3 -mavx -march=native -flto -DNDEBUG")
 
 # Mark Eigen headers as system to suppress warnings from them
 include_directories(SYSTEM ${SGD_SOURCE_DIR}/include/3party)

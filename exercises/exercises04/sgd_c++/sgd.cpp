@@ -169,10 +169,6 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
        25 iterations of regularization all at once on iteration 30. This also helps
        speed things up, and some thought will show that the effect is almost
        identical, aside from the negative log-likelihood calculations.
-
-       We know that B_n = B_{n-1} - \lambda B_{n-1}, which says that
-       B_n = (1 - \lambda)^n B_0, or more generally,
-       B_{n+k} = (1 - \lambda)^k * B_n
     */
 
     for(BetaVec::InnerIterator it(predSamp); it; ++it){
@@ -180,7 +176,7 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
 
       // Deferred L2 updates, see comment above this for-loop
       FLOATING skip = iterNum - lastUpdate[j];
-      FLOATING l2Penalty = fastPrecisePow(1 - regCoeff, skip) * guess(j);
+      FLOATING l2Penalty = regCoeff * skip * guess(j);
       lastUpdate[j] = iterNum;
 
       // Calculate gradient(j), this element of the gradient
@@ -206,7 +202,7 @@ DenseVec sgd_iteration(PredictMat& pred, ResponseVec& r, DenseVec& guess,
   // Apply any ridge-regression penalties that we have not yet evaluated
   for(int j = 0; j < nPred; j++){
     FLOATING skip = nSamp - lastUpdate[j];
-    FLOATING l2Penalty = pow(1 - regCoeff, skip) * guess(j);
+    FLOATING l2Penalty = regCoeff * skip * guess(j);
     FLOATING h = invSqrt(agWeights(j) + adagradEpsilon);
     FLOATING scaleFactor = masterStepSize * h;
     FLOATING totalDelta = scaleFactor * l2Penalty;
