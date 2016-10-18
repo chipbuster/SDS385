@@ -459,7 +459,7 @@ to alpha equivalence, replacing the name $z$ with $x$).
        grad = calc_gradient(X,y,$\beta$)
        $\gamma$ = calc_gamma()
        u = $\beta - \gamma$*grad
-       $\beta$ = solve_prox($\beta$, $\gamma$)
+       $\beta$ = solve_prox(u, $\gamma$)
     }
   }
 \end{lstlisting}
