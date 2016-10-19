@@ -50,6 +50,10 @@ element, so your computer will spend 99.995% of its time square rooting zeros.
 
 #### Sparse Vectors Fail Hard
 
+NOTE: The following section was written when Eigen 3.2.9 was the latest version.
+I was already seeing references to improved sparse support on Mercurial at the
+time--it may be that sparse vectors will work just fine for you now.
+
 You'd think we could solve the problem by making the gradient vector sparse.
 Then Eigen would know that when we do `gradient.cwiseSquare()`, it's only
 supposed to square the nonzero elements of the gradient, and maybe we could do
@@ -61,7 +65,7 @@ cases it reverts to dense operation. What this means for us is that this
 strategy won't work for speeding up the SGD calculations--at some point, Eigen
 will revert back to dense vector operations and we'll lose all of our
 performance. So while this may be something you'll be able to do in future
-versions of Eigen, when sparse support improves, it's not a strategy that
+versions of Eigen when sparse support improves, it's not a strategy that
 will work at the present.
 
 ### Explicit Sparseness To The Rescue
@@ -86,7 +90,7 @@ for(  ; it; ++it){
     adaGradWeights(j) = 1.0 / sqrt(adaGradWeights(j) + adaGradEps);
     beta(j) -= adaGradWeights(j) * gradient(j);
     
-    }
+}
 ```
 
 Compare this code with the one in the section "First Calculation" and convince
@@ -127,7 +131,8 @@ the end of the week, and b) you don't need to look at the book in the meantime.
 We find ourselves in a similar situation with updating the beta. We *technically*
 need to update every element of beta at every iteration...but if we don't look
 at, read, modify, or use that element in any form, what do we care if the update
-actually happens every iteration or not, as long as we have the right answer at the end?
+actually happens every iteration or not, as long as we have the right answer at 
+the end?
 
 This leads us to the idea of *lazy updating*. If you look at the SGD code, you'll
 notice that we only need to access the elements of beta when we're updating them
@@ -228,6 +233,11 @@ which can drastically speed things up. Unfortunately, the actual speedup
 will vary drastically with the compiler, operating system, and actual
 code you write<sup>1</sup>, so this is an optimization that you're better of 
 testing after your code is complete.
+
+**IN CASE YOU MISSED IT**, this is *not* an optimization you should try
+naively! It depends heavily on your exact system, compiler, and environment.
+Write your program, profile it, and if you're spending too much time in calls
+to `sqrt`, try this. For many people, this actually results in slower code.
 
 #### Compiler Flags
 

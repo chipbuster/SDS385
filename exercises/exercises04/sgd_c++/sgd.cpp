@@ -218,7 +218,7 @@ int main(int argc,char** argv){
   string dirname = string(argv[1]);
   tinydir_open(&dir, dirname.c_str());
 
-  vector<string> filenames;
+  vector<string> filenames; //A list of files we will (eventually) parse
 
   if(argc != 2){
     cout << "Usage: " << argv[0] << " <path-to-svmlight-directory>" << endl;
@@ -229,27 +229,30 @@ int main(int argc,char** argv){
   // See https://github.com/cxong/tinydir for details
 
   while (dir.has_next){
-    tinydir_readfile(&dir, &file);
-    tinydir_next(&dir);
+    tinydir_readfile(&dir, &file); //Read the current file
+    tinydir_next(&dir);          //Get the next file
     if(file.is_dir) continue; //Not interested in directories
 
+    //Does this file name end in '.svm'? If so, add it to our list. If not,
+    //we don't care about it and we skip over it.
     size_t len = strlen(file.name);
     if(len < 4                 ||
        file.name[len-1] != 'm' ||
        file.name[len-2] != 'v' ||
        file.name[len-3] != 's' ||
        file.name[len-4] != '.'){
-      continue; //This file does not end in ".svm"
+      continue;
     }
     filenames.push_back(dirname + string(file.name));
   }
 
-  tinydir_close(&dir);
+  tinydir_close(&dir); // Gotta clean up!
 
   // Parse the files that we read in and generate predictors/responses
   vector<Entry> results = readFileList(filenames);
   std::pair<ResponseVec, PredictMat> out = genPredictors(results);
   cout << "Matrices generated. " << endl;
+
   ResponseVec responses = out.first;
   PredictMat predictors = out.second;
 

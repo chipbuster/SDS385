@@ -48,7 +48,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS}\
 include_directories(SYSTEM ${SGD_SOURCE_DIR}/include/3party)
 include_directories(${SGD_SOURCE_DIR}/include)
 
-add_executable(summarize_svmlight read_svmlight.cpp test_funcs.cpp)
+add_executable(summarize_svmlight read_svmlight.cpp summarize_svmlight.cpp)
 set_property(TARGET summarize_svmlight PROPERTY CXX_STANDARD 11)
 
 add_executable(runsgd read_svmlight.cpp sgd.cpp)
