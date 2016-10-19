@@ -357,32 +357,33 @@ In part B, the likelihood of such a sample is (PDF from Wikipedia because I'm la
 
 \[
   \calL (y_1, \dots, y_n ; x) = \frac{1}{\left( \sqrt{2\pi}\right)^k
-    \sqrt{\det{\Omega^{-1}}}} \prod_{i=1}^n \exp \left( -\frac{1}{2}(y_i - Ax)^T
-  \Omega(y_i - Ax)\right)
+    \sqrt{\det{\Omega^{-1}}}} \exp \left( -\frac{1}{2}(y - Ax)^T
+  \Omega(y - Ax)\right)
 \]
 
-Since our ultimate goal is to minimize the likelihood, we can immediately drop
-the constant terms. Taking the log of both sides, we find that
+Taking the log of both sides, we find that
 
 \begin{align*}
   \log \calL (y_1, \dots, y_n ; x)
-  &= \log \frac{1}{\sqrt{\det{\Omega^{-1}}}} \prod_{i=1}^n \exp \left( -\frac{1}{2}(y_i - Ax)^T
-    \Omega(y_i - Ax)\right)\\
-  &= \log \frac{1}{\sqrt{\det{\Omega^{-1}}}} + \sum_{i=1}^n \log \exp \left( -\frac{1}{2}(y_i - Ax)^T
-    \Omega(y_i - Ax)\right)\\
-  &=-\left( \log \sqrt{\det{\Omega^{-1}}} + \frac{1}{2} \sum_{i=1}^n(y_i - Ax)^T
-    \Omega(y_i - Ax)\right) 
+  &= \log \left[ \frac{1}{\sqrt{2\pi}^k\sqrt{\det{\Omega^{-1}}}} \exp \left( -\frac{1}{2}(y - Ax)^T
+    \Omega(y - Ax)\right) \right]\\
+  &= \log \frac{1}{\sqrt{2\pi}^k\sqrt{\det{\Omega^{-1}}}} + \log \exp \left( -\frac{1}{2}(y - Ax)^T
+    \Omega(y - Ax)\right)\\
+  &=-\left( \log\sqrt{2\pi}^k + \log \sqrt{\det{\Omega^{-1}}} + \frac{1}{2} (y - Ax)^T \Omega(y - Ax)\right)\\
+  &= -C - \frac{1}{2} \left( x^TA^T\Omega A x - 2 y^T\Omega Ax + y^T \Omega y \right)
 \end{align*}
 
 This shows us that
 
 \[
- - \log \calL =  \frac{1}{2} \log \det{\Omega^{-1}} + \frac{1}{2} \sum_{i=1}^n(y_i - Ax)^T
-    \Omega(y_i - Ax)
+ - \log \calL =  \frac{1}{2} \log \det{\Omega^{-1}} + \frac{1}{2}\log
+ \sqrt{2\pi}^k + \frac{1}{2} \left( x^TA^T\Omega A x - 2 y^T\Omega Ax + y^T \Omega y \right)
+
 \]
 
-This can be fit into the quadratic form by choose $P = \Omega$, $q = \vec{0}$,
-and $r = \frac{1}{2} \log \det{\Omega^{-1}}$.
+This can be fit into the quadratic form by choosing $P = A^T\Omega A$, $q =
+y^T\Omega A$, and $r = \frac{1}{2} \left( \log \det{\Omega^{-1}} + \log
+  \sqrt{2\pi}^k + y^T \Omega y \right)$.
 
 \subsection*{(C)}
 

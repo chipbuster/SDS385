@@ -10,6 +10,7 @@ import scipy as sp
 import scipy.special as spsp  # Learned this one from Amelia
 import scipy.stats as spst
 import numpy.linalg as npla
+from sklearn import preprocessing
 
 # Add common modules from this project
 sys.path.append(os.path.join(os.path.dirname(__file__),'common'))
@@ -46,14 +47,19 @@ def solve_prox(B, g):
 def calc_gradient(X,y,B):
     """Calculate the gradient of f(B) = (XB - y)^T(XB - y)."""
 
-    grad = B.T @ X.T @ X
-    grad -= y.T @ X
-    grad = grad.T
+    grad = X.T @ X @ B - np.matrix(X.T @ y).T
 
     assert np.shape(grad)[1] == 1, "Gradient is shaped funny!"
 
-    return 2 * grad
+    return (2 / np.shape(X)[0]) * grad
 
+def calc_obj(X,y,B,g):
+    """Calculate the error of the guess"""
+    y = np.matrix(y).T
+    myObj = (1 / np.shape(X)[0]) * npla.norm(y - X @ B)**2
+    myPen = g * np.sum(np.abs(B))
+
+    return myObj + myPen
 
 def proximal_gradient(X,y,B, g, tol):
     """
@@ -66,7 +72,8 @@ def proximal_gradient(X,y,B, g, tol):
     tol -- (scalar) : Convergence criterion
     """
 
-    err = npla.norm(X @ B - y)
+    err = 1e10
+    last = np.ones(np.shape(B)) * err
 
     # Run proximal gradient (explanation is in writeup)
     while err > tol:
@@ -74,16 +81,19 @@ def proximal_gradient(X,y,B, g, tol):
         u = B - g * grad
         B = solve_prox(u,g)
 
-        err = npla.norm(X @ B - y)
+        err = npla.norm(last - B)
+        last = B
         print(err)
 
     return B
 
 def main(fname1,fname2):
     # Load data
-    data = np.loadtxt(fname1,skiprows=1,delimiter=",")
-    response = np.loadtxt(fname2)
-    guess = np.zeros((np.shape(data)[1],1))
+    dataRaw = np.loadtxt(fname1,skiprows=1,delimiter=",")
+    responseRaw = np.loadtxt(fname2)
+    data = preprocessing.scale(dataRaw)
+    response = preprocessing.scale(responseRaw)
+    guess = 0.5 * np.ones((np.shape(data)[1],1))
 
     sol = proximal_gradient(data,response, guess, 0.1, 0.01)
 
