@@ -1,7 +1,7 @@
 import os
 import sys
 import csv
-from copy import copy
+from copy import deepcopy
 import random
 import math
 
@@ -56,7 +56,7 @@ def calc_gradient(X,y,B):
 def calc_obj(X,y,B,g):
     """Calculate the error of the guess"""
     y = np.matrix(y).T
-    myObj = (1 / np.shape(X)[0]) * npla.norm(y - X @ B)**2
+    myObj = npla.norm(y - X @ B)**2
     myPen = g * np.sum(np.abs(B))
 
     return myObj + myPen
@@ -76,13 +76,24 @@ def proximal_gradient(X,y,B, g, tol):
     last = np.ones(np.shape(B)) * err
 
     # Run proximal gradient (explanation is in writeup)
-    while err > tol:
-        grad = calc_gradient(X,y,B)
-        u = B - g * grad
-        B = solve_prox(u,g)
 
-        err = npla.norm(last - B)
-        last = B
+    x = B
+    z = deepcopy(B)
+    s = 0.5
+
+    while err > tol:
+        grad = calc_gradient(X,y,z)
+        u = z - g * grad
+
+        x_old = x
+        x = solve_prox(u,g)
+
+        s_old = s
+        s = (1 + math.sqrt((1 + 4 * s_old**2))) / 2
+
+        z = x + ((s_old - 1) / s) * (x - x_old)
+
+        err = npla.norm(x_old - x)
         print(err)
 
     return B
@@ -95,7 +106,7 @@ def main(fname1,fname2):
     response = preprocessing.scale(responseRaw)
     guess = 0.5 * np.ones((np.shape(data)[1],1))
 
-    sol = proximal_gradient(data,response, guess, 0.1, 1e-7)
+    sol = proximal_gradient(data,response, guess, 0.1, 1e-6)
 
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2])
