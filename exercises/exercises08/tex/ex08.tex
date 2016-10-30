@@ -351,11 +351,78 @@ After some algebraic manipulation, we find that this is equivalent to
 
 Since this is a quadratic form, the minimum is found by solving
 
-\[
+\begin{equation}
   (\lambda D^TD + I) \hat{x} = y
-\]
+  \label{eq:optprob}
+\end{equation}
+
 
 so we choose $b = y$ and $C = (\lambda D^TD + I)$
 
+\section*{Comparisons!}
+
+I chose to solve this with a direct solver, Gauss-Seidel, and Jacobi Iteration.
+Running \texttt{solvers.py} in the code directory will run all three solvers,
+and generate plot comparisons with the original.
+
+In terms of running speed, Gauss-Seidel was hideously slow. Direct solves with
+SuperLU were decently fast, at just under a second apiece, and Jacobi iteration
+blew everything else away at about 0.1s per solve. I attribute the issues with
+Gauss-Seidel to the lack of a good sparse triangular solver in SciPy: without
+a solver that can take advantage of a triangular matrix to do forward solves,
+the fastest way to create a solution is to invert the lower triangular matrix,
+which takes eons because it is does not account for the triangular structure and
+instead does an LU factorization. The running speeds are summarized in Table
+\ref{tab:runtime}.
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{|c|c|}
+    \hline
+   Direct Solve & 0.777 seconds\\ \hline
+   Gauss-Seidel & 43.99 seconds\\ \hline
+   Jacobi Iteration & 0.08 seconds\\ \hline
+  \end{tabular}
+  \caption{Time to solve a single system, averaged over 3 runs}
+  \label{tab:runtime}
+\end{table}
+
+The solutions show a residual of about $10^{-14}$ from the problem defined in
+Equation~\eqref{eq:optprob}, and no greater difference than $10^{-15}$ from each
+other elementwise (i.e. the inf norm of the difference of any two solutions is
+less than $10^{-15}$), which suggests that the solutions are mostly identical. A
+plot of the solutions, shown in Figure~\ref{fig:f1}, shows that they are
+qualitatively the same. The plot in Figure~\ref{fig:f2}, of the differences
+between the smoothed and actual, shows that none of the techniques have exactly
+the same answer.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}{0.45 \textwidth}
+    \includegraphics[width=\textwidth]{figure_1.png}
+    \caption{A plot of the spatially-smoothed results.\\ Qualitatively, all
+      methods arrive at the same result.}
+    \label{fig:f1}
+  \end{subfigure} 
+  \begin{subfigure}{0.45 \textwidth}
+    \includegraphics[width=\textwidth]{figure_2.png}
+    \caption{Differences of the spatially-smoothed data from the actual data.
+      Minor differences are present, but they are on the order of $10^{-15}$.
+      Crucially, each method gets a different result.}
+    \label{fig:f2}
+  \end{subfigure} 
+\end{figure}
+
+\section{Graph fused lasso}
+
+Since I spent entirely too much time on the above section, I chose to implement
+the slow ADMM.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.8\textwidth]{figure_3}
+  \caption{ADMM versus original data}
+  \label{fig:f3}
+\end{figure}
 
 \end{document}
