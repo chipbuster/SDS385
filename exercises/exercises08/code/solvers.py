@@ -142,9 +142,9 @@ def main(fname):
     ident = spsp.identity(n)
     A = globallambda * D.T @ D + ident
 
-    res_direct = A @ direct - y
-    res_gs     = A @ gs - y
-    res_jacobi = A @ jacobi - y
+    res_direct = direct - y
+    res_gs     = gs - y
+    res_jacobi = jacobi - y
 
     print("Direct Solve averaged " + str(direct_time) +  " per solve.")
     print("Gauss Seidel averaged " + str(gs_time) + " per solve.")
@@ -165,9 +165,9 @@ def main(fname):
 
     # Reshape our solutions into images for imshow to display
     orig = np.reshape(y, (edgeSz,edgeSz))
-    gs_smooth = np.reshape(A @ gs, (edgeSz,edgeSz))
-    direct_smooth = np.reshape(A @ direct, (edgeSz,edgeSz))
-    jacobi_smooth = np.reshape(A @ jacobi, (edgeSz,edgeSz))
+    gs_smooth = np.reshape(gs, (edgeSz,edgeSz))
+    direct_smooth = np.reshape(direct, (edgeSz,edgeSz))
+    jacobi_smooth = np.reshape(jacobi, (edgeSz,edgeSz))
 
     # Plot results
     plt.figure(1)
