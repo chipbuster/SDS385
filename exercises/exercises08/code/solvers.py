@@ -23,7 +23,7 @@ import code
 import pdb
 
 tol = 1e-13
-globallambda = 0.2
+globallambda = 1.0
 
 def pred_shape(mat):
     """If mat is a data matrix, return the shape of its predictor."""

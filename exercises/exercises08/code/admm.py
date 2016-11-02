@@ -16,14 +16,13 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-
 import reader
 
 import pdb
 
 #temporary dummy function
 def calc_gamma():
-    return 0.1
+    return 1.0
 
 def sign(x):
     """Return +1 if x >= 0, and -1 otherwise"""
@@ -126,7 +125,7 @@ def main(fname):
     A = lam * D.T @ D + ident
 
     orig = np.reshape(y, (edgeSz,edgeSz))
-    admm_smooth = np.reshape(y, (edgeSz,edgeSz))
+    admm_smooth = np.reshape(sol, (edgeSz,edgeSz))
 
     plt.figure(1)
     plt.suptitle("Smoothing Results")
