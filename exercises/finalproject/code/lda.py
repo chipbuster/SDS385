@@ -11,6 +11,8 @@ import scipy.special as spsp
 
 from copy import deepcopy
 
+import pdb
+
 # The algorithm in this paper is SVI, from the paper "Stochastic Variational
 # Inference" by Hoffman, Blei, Wang, and Paisley, JMLR 14(2013), 1303-1347
 # HoffmanF6 refers to the algorithm presented in Figure 6 of that paper.
@@ -139,20 +141,23 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
         gamma_converged = False
         phi_converged = False
 
-        while not gamma_converged and not phi_converged:
+        while not gamma_converged or not phi_converged:
             for n, word in enumerate(docWords):
                 elogtheta = np.zeros(ntopics)
                 elogbeta = np.zeros(ntopics)
+                wordId = wordPool.wordToIndexTbl[word]
                 for k in range(ntopics):
-                    wordId = wordPool.wordToIndexTbl[word]
                     elogtheta[k] = calc_logthetadk(gamma,k)
                     elogbeta[k] = calc_logbetakv(lParams,k,wordId)
 
-                normfactor = np.mean(elogbeta) + np.mean(elogtheta)
+                normfactor = np.mean(elogbeta + elogtheta)
 
-                print(elogbeta + elogtheta - normfactor)
-                phi[n,:] = normalize_l1(np.exp(elogbeta + elogtheta - normfactor))
-            gamma = alpha + np.sum(phi,axis=0)
+                phivec = normalize_l1(np.exp(elogbeta + elogtheta - normfactor))
+                phi[n,:] = phivec / np.min(phivec)
+                #print(phi[n,:])
+            gupdate = np.sum(phi,axis=0)
+            print(gupdate)
+            gamma = alpha + gupdate
 
             # Check gamma convergence
             deltaGamma = gamma_old - gamma
@@ -176,14 +181,19 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
                 phi_converged = False
             phi_old = phi
 
+            print("deltap:", dp, dg)
+
         print("BREAKOUT INTO LAMBDA UPDATE")
+        pdb.set_trace()
+        print(phi)
+        print(gamma)
         rho *= 0.7
         deltaLambda = np.zeros(np.shape(lParams)) + eta
 
         for k in range(ntopics):
             deltaLambda[k,:] = np.ones(np.shape(lParams[k,:])) * eta +\
                            ndocs * np.sum(phi[:,k])
-
+        print(deltaLambda)
 
 def lda_test_driver(path, ntopics):
     wordPool = WordPool(path)
