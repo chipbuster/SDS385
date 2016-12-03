@@ -13,6 +13,8 @@ from copy import deepcopy
 
 import pdb
 
+#np.set_printoptions(threshold=np.nan)  #Uncomment to print full arrays
+
 # The algorithm in this paper is SVI, from the paper "Stochastic Variational
 # Inference" by Hoffman, Blei, Wang, and Paisley, JMLR 14(2013), 1303-1347
 # HoffmanF6 refers to the algorithm presented in Figure 6 of that paper.
@@ -76,7 +78,7 @@ def init_lambda(ntopics, nwords):
     lamba vector is the k-th row of the returned array."""
     assert ntopics > 0, "The fuck you doin?"
     assert nwords > 0, "The fuck you doin?"
-    return np.sqrt(np.sqrt(npr.rand(ntopics,nwords)))
+    return npr.gamma(8,1,(ntopics,nwords))
 
 def normalize_l1(vector):
     """Normalize the given vector by L1 norm."""
@@ -122,15 +124,19 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
     lParams = init_lambda(ntopics, nwords)
     rho = 1
 
-    convergenceParam = 1000
+    converged = False
 
     iterct = 0
-    while iterct < 5e5:
+    while not converged:
         iterct += 1
 
         # docWords is a list of words of a single document
         docIndex,docWords = samp_doc(path)
+        docWordIDs = [ wordPool.wordToIndexTbl[word] for word in docWords ]
         nDocWords = len(docWords)
+
+        print("Document " + str(docIndex) + " has "  + str(nDocWords) + " words " +\
+              " in a vocabulary of " + str(nwords) + " words.")
 
         gamma = np.ones(ntopics)
         phi = np.zeros((nDocWords, ntopics))
@@ -142,30 +148,30 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
         phi_converged = False
 
         while not gamma_converged or not phi_converged:
-            for n, word in enumerate(docWords):
+            for n, wordId in enumerate(docWordIDs):
                 elogtheta = np.zeros(ntopics)
                 elogbeta = np.zeros(ntopics)
-                wordId = wordPool.wordToIndexTbl[word]
                 for k in range(ntopics):
                     elogtheta[k] = calc_logthetadk(gamma,k)
                     elogbeta[k] = calc_logbetakv(lParams,k,wordId)
 
-                normfactor = np.mean(elogbeta + elogtheta)
+                normfactor = np.max(elogbeta + elogtheta)
+
+#                print(elogbeta, elogtheta)
 
                 phivec = normalize_l1(np.exp(elogbeta + elogtheta - normfactor))
-                phi[n,:] = phivec / np.min(phivec)
+                phi[n,:] = phivec
                 #print(phi[n,:])
             gupdate = np.sum(phi,axis=0)
-            print(gupdate)
             gamma = alpha + gupdate
 
             # Check gamma convergence
             deltaGamma = gamma_old - gamma
             assert np.shape(gamma_old) == np.shape(gamma)
-            print(gamma_old, gamma)
-            print(deltaGamma)
+            #print(gamma_old, gamma)
+            #print(deltaGamma)
             dg = npla.norm(deltaGamma, 1) / np.size(deltaGamma)
-            if dg < 0.01:
+            if dg < 1e-4:
                 gamma_converged = True
             else:
                 gamma_converged = False
@@ -175,33 +181,59 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
             deltaPhi = phi_old - phi
             assert np.shape(phi_old) == np.shape(phi)
             dp = npla.norm(deltaPhi,1) / np.size(deltaPhi)
-            if dp < 0.01:
+            if dp < 1e-4:
                 phi_converged = True
             else:
                 phi_converged = False
             phi_old = phi
 
-            print("deltap:", dp, dg)
+            #print("deltap:", dp, dg)
 
-        print("BREAKOUT INTO LAMBDA UPDATE")
-        pdb.set_trace()
-        print(phi)
-        print(gamma)
-        rho *= 0.7
+        #print("BREAKOUT INTO LAMBDA UPDATE")
+        rho *= 0.95
         deltaLambda = np.zeros(np.shape(lParams)) + eta
 
+        #print(gamma)
+        #print('phi')
+        #print(phi)
+
         for k in range(ntopics):
-            deltaLambda[k,:] = np.ones(np.shape(lParams[k,:])) * eta +\
-                           ndocs * np.sum(phi[:,k])
-        print(deltaLambda)
+            for w in range(nDocWords):
+                wordIndex = docWordIDs[w]
+                deltaLambda[k,wordIndex] += ndocs * phi[wordIndex,k]
+
+        assert np.shape(deltaLambda) == np.shape(lParams)
+
+        lParams = (1 - rho) * lParams + rho * deltaLambda
+
+        lParamDeltaMag = rho * npla.norm(deltaLambda.T) / np.size(deltaLambda)
+        print(lParamDeltaMag)
+
+        if lParamDeltaMag < 1e-3:
+            print("Finished after " + str(iterct) + " global lambda updates.")
+            return lParams
+
+    print("Program did not converge after MANY iterations. This shouldn't even be possible.")
+    return lParams
+
 
 def lda_test_driver(path, ntopics):
     wordPool = WordPool(path)
     nwords = wordPool.wordct
     ndocs = wordPool.ndocs
 
-    alpha = 1 / ntopics
-    eta = 1 / nwords
+    alpha = 0.3
+    eta = 0.3
 
+    print("eta = " + str(eta) + " ;;; alpha = " + str(alpha))
     print("Begin calculations")
-    lda_documents(path,ntopics,alpha,eta,wordPool)
+    globalLambda = lda_documents(path,ntopics,alpha,eta,wordPool)
+
+def main(args):
+    path = args[0]
+    topics = int(args[1])
+
+    lda_test_driver(path,topics)
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
