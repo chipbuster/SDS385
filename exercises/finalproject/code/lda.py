@@ -3,6 +3,7 @@ import os
 import sys
 import random
 import math
+import pickle
 
 import numpy as np
 import numpy.random as npr
@@ -78,7 +79,8 @@ def init_lambda(ntopics, nwords):
     lamba vector is the k-th row of the returned array."""
     assert ntopics > 0, "The fuck you doin?"
     assert nwords > 0, "The fuck you doin?"
-    return npr.gamma(8,1,(ntopics,nwords))
+    #return npr.gamma(8,1,(ntopics,nwords))
+    return npr.rand(ntopics,nwords)
 
 def normalize_l1(vector):
     """Normalize the given vector by L1 norm."""
@@ -97,19 +99,23 @@ def samp_doc(path):
 
     return (randIndex,docContents.split())
 
-def calc_logthetadk(gammavec,k):
+def calc_logthetadk(gammavec,k, term2):
     """Calculate E[log theta_dk] according to Figure 5 of Hoffman"""
 
     term1 = spsp.digamma(gammavec[k])
-    term2 = np.sum(spsp.digamma(gammavec))
+
+    # Cached by outside computation
+    # term2 = np.sum(spsp.digamma(gammavec))
 
     return term1 - term2
 
-def calc_logbetakv(lambdavec, k, v):
+def calc_logbetakv(lambdavec, k, v, term2):
     """Calculate E[log beta_kv] according to Figure 5 of Hoffman"""
 
     term1 = spsp.digamma(lambdavec[k,v])
-    term2 = np.sum(spsp.digamma(lambdavec[k,:]))
+
+    # Cached by outside computation
+    #term2 = np.sum(spsp.digamma(lambdavec[k,:]))
 
     return term1 - term2
 
@@ -122,7 +128,7 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
     # A set of ntopics dirichelet parameters, each nwords long
     # Each parameter is in a column of this array e.g. lParams[:,4]
     lParams = init_lambda(ntopics, nwords)
-    rho = 1
+    rho = 0.9
 
     converged = False
 
@@ -135,8 +141,8 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
         docWordIDs = [ wordPool.wordToIndexTbl[word] for word in docWords ]
         nDocWords = len(docWords)
 
-        print("Document " + str(docIndex) + " has "  + str(nDocWords) + " words " +\
-              " in a vocabulary of " + str(nwords) + " words.")
+#        print("Document " + str(docIndex) + " has "  + str(nDocWords) + " words " +\
+#              " in a vocabulary of " + str(nwords) + " words.")
 
         gamma = np.ones(ntopics)
         phi = np.zeros((nDocWords, ntopics))
@@ -147,13 +153,24 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
         gamma_converged = False
         phi_converged = False
 
+        elogtheta = np.zeros(ntopics)
+        elogbeta = np.zeros(ntopics)
+
+
+        # Conceptually, this next line goes inside the loop over enumerate(docWordIDs)
+        # However, since lParams is not updated inside this loop, it is safe to cache
+        # this computation and do it just once per document.
+        lParamSum = np.sum(spsp.digamma(lParams),axis=1)
+
         while not gamma_converged or not phi_converged:
             for n, wordId in enumerate(docWordIDs):
-                elogtheta = np.zeros(ntopics)
-                elogbeta = np.zeros(ntopics)
+                gammaSum = np.sum(spsp.digamma(gamma))
+
+                assert np.size(lParamSum) == ntopics
+
                 for k in range(ntopics):
-                    elogtheta[k] = calc_logthetadk(gamma,k)
-                    elogbeta[k] = calc_logbetakv(lParams,k,wordId)
+                    elogtheta[k] = calc_logthetadk(gamma,k, gammaSum)
+                    elogbeta[k] = calc_logbetakv(lParams,k,wordId,lParamSum[k])
 
                 normfactor = np.max(elogbeta + elogtheta)
 
@@ -209,12 +226,83 @@ def lda_documents(path, ntopics, alpha, eta, wordPool):
         lParamDeltaMag = rho * npla.norm(deltaLambda.T) / np.size(deltaLambda)
         print(lParamDeltaMag)
 
-        if lParamDeltaMag < 1e-3:
+        if lParamDeltaMag < 1e-4:
             print("Finished after " + str(iterct) + " global lambda updates.")
             return lParams
 
     print("Program did not converge after MANY iterations. This shouldn't even be possible.")
     return lParams
+
+def genDocDistributions(lParams, ntopics, alpha, eta, docIndex, path, wordPool):
+    """Generate the phi/gamma parameters for a given document.
+
+    Once the lambda parameters have been finalized, we need to generate
+    the per-document topic and word-topic distributions. Do this by
+    following the same procedure as in the mainloop of LDA."""
+
+    docName = os.listdir(path)[docIndex]
+    with open(os.path.join(path,docName),'r') as infile:
+        docContents = infile.read()
+        docWords = docContents.split()
+
+    docWordIDs = [ wordPool.wordToIndexTbl[word] for word in docWords ]
+    nDocWords = len(docWords)
+
+    gamma = np.ones(ntopics)
+    phi = np.zeros((nDocWords, ntopics))
+
+    phi_old = deepcopy(phi)
+    gamma_old = deepcopy(gamma)
+
+    gamma_converged = False
+    phi_converged = False
+
+    elogtheta = np.zeros(ntopics)
+    elogbeta = np.zeros(ntopics)
+
+
+    lParamSum = np.sum(spsp.digamma(lParams),axis=1)
+    while not gamma_converged or not phi_converged:
+        for n, wordId in enumerate(docWordIDs):
+            gammaSum = np.sum(spsp.digamma(gamma))
+
+            assert np.size(lParamSum) == ntopics
+
+            for k in range(ntopics):
+                elogtheta[k] = calc_logthetadk(gamma,k, gammaSum)
+                elogbeta[k] = calc_logbetakv(lParams,k,wordId,lParamSum[k])
+
+            normfactor = np.max(elogbeta + elogtheta)
+
+            phivec = normalize_l1(np.exp(elogbeta + elogtheta - normfactor))
+            phi[n,:] = phivec
+            #print(phi[n,:])
+        gupdate = np.sum(phi,axis=0)
+        gamma = alpha + gupdate
+
+        # Check gamma convergence
+        deltaGamma = gamma_old - gamma
+        assert np.shape(gamma_old) == np.shape(gamma)
+        #print(gamma_old, gamma)
+        #print(deltaGamma)
+        dg = npla.norm(deltaGamma, 1) / np.size(deltaGamma)
+        if dg < 1e-4:
+            gamma_converged = True
+        else:
+            gamma_converged = False
+        gamma_old = gamma
+
+        # Check phi convergence
+        deltaPhi = phi_old - phi
+        assert np.shape(phi_old) == np.shape(phi)
+        dp = npla.norm(deltaPhi,1) / np.size(deltaPhi)
+        if dp < 1e-4:
+            phi_converged = True
+        else:
+            phi_converged = False
+        phi_old = phi
+
+    return (gamma,phi)
 
 
 def lda_test_driver(path, ntopics):
@@ -222,12 +310,41 @@ def lda_test_driver(path, ntopics):
     nwords = wordPool.wordct
     ndocs = wordPool.ndocs
 
+    calcLambdas = False
+
     alpha = 0.3
     eta = 0.3
 
-    print("eta = " + str(eta) + " ;;; alpha = " + str(alpha))
-    print("Begin calculations")
-    globalLambda = lda_documents(path,ntopics,alpha,eta,wordPool)
+
+    if calcLambdas:
+        print("eta = " + str(eta) + " ;;; alpha = " + str(alpha))
+        print("Begin lambda calculations")
+        globalLambda = lda_documents(path,ntopics,alpha,eta,wordPool)
+
+        with open("lambda.pickle",'wb') as picklefile:
+            pickle.dump(globalLambda, picklefile)
+
+    else:
+        print("Load lambda from pickle")
+        with open("lambda.pickle",'rb') as picklefile:
+            globalLambda = pickle.load(picklefile)
+
+    print("Calculate per-document parameters")
+
+    nDocs = len(os.listdir(path))
+
+    docPhi = [None] * nDocs
+    docGamma = [None] * nDocs
+
+    for j in range(nDocs):
+        print(j)
+        (g,p) = genDocDistributions(globalLambda, ntopics, alpha, eta, j, path, wordPool)
+        docPhi.append(p)
+        docGamma.append(g)
+
+    with open("phigamma.pickle",'wb') as picklefile:
+        pickle.dump((docPhi,docGamma), picklefile)
+
 
 def main(args):
     path = args[0]
