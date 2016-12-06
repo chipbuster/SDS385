@@ -1,0 +1,24 @@
+[ballerina
+ afterlife
+ kimono
+ boo
+ cadaver
+ vanish
+ robe
+ gruesome
+ fantasy
+ goblin
+ skeleton
+ weird
+ fairy
+ flashlight
+ coffin
+ bat
+ superhero
+ spook
+ princess
+ queen
+ strange
+ startling
+ phantasm
+ dreadful]
