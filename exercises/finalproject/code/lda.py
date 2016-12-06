@@ -260,7 +260,6 @@ def genDocDistributions(lParams, ntopics, alpha, eta, docIndex, path, wordPool):
     elogtheta = np.zeros(ntopics)
     elogbeta = np.zeros(ntopics)
 
-
     lParamSum = np.sum(spsp.digamma(lParams),axis=1)
     while not gamma_converged or not phi_converged:
         for n, wordId in enumerate(docWordIDs):
@@ -315,7 +314,6 @@ def lda_test_driver(path, ntopics):
     alpha = 0.3
     eta = 0.3
 
-
     if calcLambdas:
         print("eta = " + str(eta) + " ;;; alpha = " + str(alpha))
         print("Begin lambda calculations")
@@ -336,15 +334,20 @@ def lda_test_driver(path, ntopics):
     docPhi = [None] * nDocs
     docGamma = [None] * nDocs
 
-    for j in range(nDocs):
-        print(j)
-        (g,p) = genDocDistributions(globalLambda, ntopics, alpha, eta, j, path, wordPool)
-        docPhi.append(p)
-        docGamma.append(g)
+    calcDocParams = False
 
-    with open("phigamma.pickle",'wb') as picklefile:
-        pickle.dump((docPhi,docGamma), picklefile)
+    if calcDocParams:
+        for j in range(nDocs):
+            print(j)
+            (g,p) = genDocDistributions(globalLambda, ntopics, alpha, eta, j, path, wordPool)
+            docPhi.append(p)
+            docGamma.append(g)
 
+        with open("phigamma.pickle",'wb') as picklefile:
+            pickle.dump((docPhi,docGamma), picklefile)
+    else:
+        with open('phigamma.pickle','rb') as picklefile:
+            (docPhi, docGamma) = pickle.load(picklefile)
 
 def main(args):
     path = args[0]
